@@ -1,69 +1,104 @@
 import React, { useState } from 'react';
+import { Form, Input, Button, Card, Typography, Space, message } from 'antd';
+import { SendOutlined, HomeOutlined } from '@ant-design/icons';
 import { pollApi } from '../api/pollApi';
 
-// The 'navigateToPoll' prop is a function passed down from App.jsx
-// to tell it to switch to the poll view.
-function CreatePoll({ navigateToPoll }) {
-  const [question, setQuestion] = useState('');
-  const [options, setOptions] = useState('');
-  const [error, setError] = useState('');
+const { Title } = Typography;
+const { TextArea } = Input;
+
+function CreatePoll({ navigateToPoll, navigateToHome }) {
+  const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  const handleSubmit = async (values) => {
     setIsLoading(true);
+    
+    // Split the options text area by new lines and filter out empty lines
+    const optionsArray = values.options.split('\n').filter(opt => opt.trim() !== '');
 
-    // Split the options text area by new lines and filter out empty lines.
-    const optionsArray = options.split('\n').filter(opt => opt.trim() !== '');
-
-    if (!question || optionsArray.length < 2) {
-      setError('Please provide a question and at least two options on separate lines.');
+    if (optionsArray.length < 2) {
+      message.error('Please provide at least two options on separate lines.');
       setIsLoading(false);
       return;
     }
 
     try {
-      const newPoll = await pollApi.createPoll({ question, options: optionsArray });
-      // On success, call the navigation function with the new poll's ID
+      const newPoll = await pollApi.createPoll({ 
+        question: values.question, 
+        options: optionsArray 
+      });
+      message.success('Poll created successfully!');
       navigateToPoll(newPoll.id);
     } catch (err) {
-      setError(err.message);
+      message.error(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="create-poll-container">
-      <h2>Create a New Poll</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="question">Poll Question</label>
-          <input
-            id="question"
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g., What is your favorite color?"
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="options">Options (one per line)</label>
-          <textarea
-            id="options"
-            value={options}
-            onChange={(e) => setOptions(e.target.value)}
-            rows="4"
-            placeholder="e.g.,&#10;Red&#10;Green&#10;Blue"
-          />
-        </div>
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Creating...' : 'Create Poll'}
-        </button>
-        {error && <p className="error-message">{error}</p>}
-      </form>
-    </div>
+    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 600, margin: '0 auto' }}>
+      <Card>
+        <Title level={2} style={{ textAlign: 'center' }}>Create a New Poll</Title>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          style={{ maxWidth: '100%' }}
+        >
+          <Form.Item
+            label="Poll Question"
+            name="question"
+            rules={[
+              { required: true, message: 'Please enter your poll question' }
+            ]}
+          >
+            <Input
+              placeholder="e.g., What is your favorite color?"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Options (one per line)"
+            name="options"
+            rules={[
+              { required: true, message: 'Please enter at least two options' }
+            ]}
+            style={{ marginBottom: '20px' }}          >
+            <TextArea
+              placeholder="e.g.,
+Red
+Green
+Blue"
+              rows={4}
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item style={{ textAlign: 'center', marginTop: '12px' }}> 
+            <Space direction="vertical" size="middle">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={isLoading}
+                icon={<SendOutlined />}
+                size="large"
+              >
+                {isLoading ? 'Creating...' : 'Create Poll'}
+              </Button>
+              
+              <Button 
+                icon={<HomeOutlined />}
+                onClick={navigateToHome}
+              >
+                Back to Home
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+    </Space>
   );
 }
 

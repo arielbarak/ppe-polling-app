@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Card, Button, Typography, List, Space, Alert, Spin, Progress, Divider } from 'antd';
+import { HomeOutlined, CheckCircleOutlined, UserOutlined, LockOutlined } from '@ant-design/icons';
 import { pollApi } from '../api/pollApi';
 import { cryptoService } from '../services/cryptoService';
 import { calculateNeighbors } from '../services/graphService';
 import { sha256 } from 'js-sha256';
 import CaptchaModal from './CaptchaModal';
+
+const { Title, Text } = Typography;
 
 // Function to generate our own CAPTCHA challenge
 const generateCaptchaText = (length = 6) => {
@@ -140,13 +144,13 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
     }
   };
 
-  if (isLoading) return <p>Loading poll...</p>;
-  if (!poll) return <p>Poll not found.</p>;
+  if (isLoading) return <Spin size="large" />;
+  if (!poll) return <Alert message="Poll not found" type="error" />;
 
   const hasVoted = currentUserId && poll.votes[currentUserId];
 
   return (
-    <div className="poll-page-container">
+    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
       {ppeState.step === 'solving' && (
         <CaptchaModal
           peerId={ppeState.peerId}
@@ -155,48 +159,99 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
           onClose={() => setPpeState({ step: 'idle' })}
         />
       )}
-      <h2>{poll.question}</h2>
+
+      <Card>
+        <Title level={2}>{poll.question}</Title>
+      </Card>
+
       {!hasVoted && (
-        <div className="certification-section">
-          <h3>Step 1: Certify with Peers</h3>
-          <ul>
-            {neighbors.map(neighborId => (
-              <li key={neighborId}>
-                <span>Peer: {neighborId.substring(0, 12)}...</span>
-                {certifiedPeers.has(neighborId) ? (
-                  <span className="certified-label">✅ Certified</span>
-                ) : (
-                  <button onClick={() => handleStartCertification(neighborId)}>Start PPE</button>
-                )}
-              </li>
-            ))}
-             {neighbors.length === 0 && <li>Waiting for other users to register...</li>}
-          </ul>
-        </div>
+        <Card title={<Title level={3}><LockOutlined /> Step 1: Certify with Peers</Title>}>
+          <List
+            dataSource={neighbors.length ? neighbors : ['Waiting for other users to register...']}
+            renderItem={neighborId => (
+              <List.Item
+                actions={[
+                  neighbors.length && (
+                    certifiedPeers.has(neighborId) ? (
+                      <Text type="success"><CheckCircleOutlined /> Certified</Text>
+                    ) : (
+                      <Button 
+                        type="primary" 
+                        onClick={() => handleStartCertification(neighborId)}
+                      >
+                        Start PPE
+                      </Button>
+                    )
+                  )
+                ]}
+              >
+                <List.Item.Meta
+                  avatar={<UserOutlined />}
+                  title={neighbors.length ? `Peer: ${neighborId.substring(0, 12)}...` : neighborId}
+                />
+              </List.Item>
+            )}
+          />
+        </Card>
       )}
-      <div className="vote-section">
-        <h3>Step 2: Cast Your Vote</h3>
+
+      <Card title={<Title level={3}>Step 2: Cast Your Vote</Title>}>
         {hasVoted ? (
-          <p>You have already voted for: <strong>{poll.votes[currentUserId]?.option}</strong></p>
+          <Alert
+            message="Vote Submitted"
+            description={`You have voted for: ${poll.votes[currentUserId]?.option}`}
+            type="success"
+            showIcon
+          />
         ) : (
-          poll.options.map((option, index) => (
-            <button key={`vote-option-${index}`} onClick={() => handleVote(option)} className="vote-button">
-              {option}
-            </button>
-          ))
+          <Space wrap>
+            {poll.options.map((option, index) => (
+              <Button
+                key={`vote-option-${index}`}
+                type="primary"
+                size="large"
+                onClick={() => handleVote(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </Space>
         )}
-      </div>
-       <div className="results-section">
-        <h3>Live Results</h3>
-        <ul>
-          {poll.options.map((option, index) => {
+      </Card>
+
+      <Card title={<Title level={3}>Live Results</Title>}>
+        <List
+          dataSource={poll.options}
+          renderItem={(option) => {
             const voteCount = Object.values(poll.votes).filter(v => v.option === option).length;
-            return <li key={`result-option-${index}`}><span>{option}:</span> <span>{voteCount} vote(s)</span></li>
-          })}
-        </ul>
-      </div>
-      <button onClick={navigateToHome} style={{ marginTop: '20px' }}>Back to Home</button>
-    </div>
+            const totalVotes = Object.keys(poll.votes).length;
+            const percentage = totalVotes ? (voteCount / totalVotes) * 100 : 0;
+
+            return (
+              <List.Item>
+                <List.Item.Meta
+                  title={option}
+                  description={
+                    <Progress 
+                      percent={Math.round(percentage)} 
+                      format={() => `${voteCount} vote${voteCount !== 1 ? 's' : ''}`}
+                    />
+                  }
+                />
+              </List.Item>
+            );
+          }}
+        />
+      </Card>
+
+      <Button 
+        icon={<HomeOutlined />}
+        onClick={navigateToHome}
+        style={{ alignSelf: 'center' }}
+      >
+        Back to Home
+      </Button>
+    </Space>
   );
 }
 

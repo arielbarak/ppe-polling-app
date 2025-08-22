@@ -3,4 +3,4 @@ uvicorn[standard]
 python-multipart
 pyjwt
 cryptography
-js-sha256
+#js-sha256

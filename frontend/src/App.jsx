@@ -1,39 +1,74 @@
 import React, { useState, useEffect } from 'react';
+import { Layout, Space, Button, Input, Typography, Form, Card, Row, Col } from 'antd';
+import { PlusOutlined, LoginOutlined } from '@ant-design/icons';
 import { cryptoService } from './services/cryptoService';
 import CreatePoll from './components/CreatePoll';
 import PollRegisterPage from './components/PollRegisterPage';
 import PollVotePage from './components/PollVotePage';
 import './App.css';
 
-// Updated HomePage component with "Join Poll" functionality
-const HomePage = ({ navigateToCreate, navigateToPoll }) => {
-  const [joinPollId, setJoinPollId] = useState('');
+const { Header, Content, Footer } = Layout;
+const { Title, Paragraph } = Typography;
 
-  const handleJoin = () => {
-    if (joinPollId.trim()) {
-      navigateToPoll(joinPollId.trim());
+const HomePage = ({ navigateToCreate, navigateToPoll }) => {
+  const [form] = Form.useForm();
+
+  const handleJoin = (values) => {
+    if (values.pollId?.trim()) {
+      navigateToPoll(values.pollId.trim());
     }
   };
 
   return (
-    <div className="homepage-container">
-      <div className="homepage-action">
-        <h2>Create a Poll</h2>
-        <p>Create a new secure, publicly verifiable poll.</p>
-        <button onClick={navigateToCreate}>Create New Poll</button>
-      </div>
-      <div className="homepage-action">
-        <h2>Join a Poll</h2>
-        <p>Have a poll ID? Enter it here to join.</p>
-        <input
-          type="text"
-          value={joinPollId}
-          onChange={(e) => setJoinPollId(e.target.value)}
-          placeholder="Enter Poll ID"
-        />
-        <button onClick={handleJoin}>Join Poll</button>
-      </div>
-    </div>
+    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 600, margin: '0 auto' }}>
+      <Card>
+        <Title level={2}>Create a Poll</Title>
+        <Paragraph>Create a new secure, publicly verifiable poll.</Paragraph>
+        <Button 
+          type="primary" 
+          icon={<PlusOutlined />} 
+          onClick={navigateToCreate}
+          size="large"
+        >
+          Create New Poll
+        </Button>
+      </Card>
+
+      <Card>
+        <Title level={2}>Join a Poll</Title>
+        <Paragraph>Have a poll ID? Enter it here to join.</Paragraph>
+        <Form form={form} onFinish={handleJoin}>
+          <Form.Item
+            name="pollId"
+            rules={[{ required: true, message: 'Please enter a Poll ID' }]}
+          >
+            <Input.Search
+              placeholder="Enter Poll ID"
+              enterButton={
+                <Button 
+                  type="primary" 
+                  icon={<LoginOutlined />}
+                  onClick={() => {
+                    const pollId = form.getFieldValue('pollId');
+                    if (pollId?.trim()) {
+                      navigateToPoll(pollId.trim());
+                    }
+                  }}
+                >
+                  Join Poll
+                </Button>
+              }
+              size="large"
+              onSearch={(value) => {
+                if (value?.trim()) {
+                  navigateToPoll(value.trim());
+                }
+              }}
+            />
+          </Form.Item>
+        </Form>
+      </Card>
+    </Space>
   );
 };
 
@@ -75,17 +110,35 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>PPE Polling System</h1>
-      </header>
-      <main>
-        {renderView()}
-      </main>
-      <footer className="App-footer">
-        {publicKey && <p className="key-status">Identity Loaded</p>}
-      </footer>
-    </div>
+    <Layout className="App">
+      <Header style={{ 
+        background: '#fff', 
+        padding: '0 24px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <Title justify="center" level={3} style={{ margin: '16px 0' }}>PPE Polling System</Title>
+      </Header>
+      <Content style={{ 
+        padding: '24px 50px',
+        minHeight: 'calc(100vh - 134px)'
+      }}>
+        <div className="site-layout-content">
+          {renderView()}
+        </div>
+      </Content>
+      <Footer style={{ textAlign: 'center' }}>
+        {publicKey && (
+          <Paragraph type="secondary">
+            <Space>
+              Identity Loaded
+            </Space>
+          </Paragraph>
+        )}
+      </Footer>
+    </Layout>
   );
 }
 
