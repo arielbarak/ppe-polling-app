@@ -7,21 +7,21 @@ router = APIRouter(
     tags=["WebSockets"],
 )
 
-@router.websocket("/{poll_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, poll_id: str, user_id: str):
+@router.websocket("/{poll_id}/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, poll_id: str, client_id: str):
     """
     Handles WebSocket connections and relays messages for the PPE protocol.
     """
-    await manager.connect(websocket, poll_id, user_id)
+    await manager.connect(websocket, poll_id, client_id)
     try:
         while True:
             data = await websocket.receive_text()
+            message = json.loads(data)
             
             # --- PRINT DEBUGGING ---
-            print(f"\n[SERVER LOG] Message received from user: {user_id[:10]}...")
+            print(f"\n[SERVER LOG] Message received from user: {client_id[:10]}...")
             print(f"[SERVER LOG] Raw data: {data}")
             
-            message = json.loads(data)
             target_id = message.get("target")
             
             print(f"[SERVER LOG] Parsed message type: {message.get('type')}")
@@ -32,7 +32,7 @@ async def websocket_endpoint(websocket: WebSocket, poll_id: str, user_id: str):
                 
                 if target_ws:
                     print(f"[SERVER LOG] Target WebSocket found for user {target_id[:10]}...")
-                    message["from"] = user_id
+                    message["from"] = client_id
                     await target_ws.send_json(message)
                     print(f"[SERVER LOG] Message successfully relayed to target.")
                 else:
@@ -40,7 +40,28 @@ async def websocket_endpoint(websocket: WebSocket, poll_id: str, user_id: str):
             else:
                 print(f"[SERVER LOG] Message has no target. Not relaying.")
 
+            if message["type"] == "request_verification":
+                # Broadcast verification request to target user
+                await manager.send_personal_message(
+                    json.dumps({
+                        "type": "verification_requested",
+                        "from": client_id
+                    }),
+                    poll_id,
+                    message["target"]
+                )
+            
+            elif message["type"] == "accept_verification":
+                # Broadcast verification acceptance
+                await manager.broadcast_to_poll(
+                    json.dumps({
+                        "type": "verification_accepted",
+                        "verifier": client_id,
+                        "verified": message["target"]
+                    }),
+                    poll_id
+                )
     except WebSocketDisconnect:
-        manager.disconnect(poll_id, user_id)
+        manager.disconnect(poll_id, client_id)
     except json.JSONDecodeError:
-        print(f"Received non-JSON message from {user_id[:10]}")
+        print(f"Received non-JSON message from {client_id[:10]}")

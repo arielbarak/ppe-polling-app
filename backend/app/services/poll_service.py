@@ -37,15 +37,64 @@ class PollService:
         return poll
 
     def record_vote(self, poll_id: str, vote: Vote) -> Optional[Poll]:
+        """
+        Record a vote after verifying:
+        1. Poll exists
+        2. User is registered
+        3. User hasn't voted yet
+        4. User has enough verifications
+        5. Signature is valid
+        """
         poll = self.get_poll(poll_id)
-        if not poll: raise ValueError("Poll not found")
+        if not poll:
+            raise ValueError("Poll not found")
+
         user_id = get_user_id(vote.publicKey)
+        
+        # Check if user is registered
+        if user_id not in poll.registrants:
+            raise ValueError("User is not registered for this poll")
+
+        # Check if user has already voted
         if user_id in poll.votes:
-            raise ValueError("User has already voted.")
+            raise ValueError("User has already voted")
+
+        # Check if user has enough verifications (minimum 2)
+        if not poll.can_vote(user_id):
+            verification_count = len(poll.verifications.get(user_id, {}).verified_by)
+            raise ValueError(f"Insufficient verifications. You have {verification_count}/2 required verifications")
+
+        # Verify signature
         message_to_verify = f"{poll.id}:{vote.option}"
         if not verify_signature(vote.publicKey, message_to_verify, vote.signature):
-            raise ValueError("Invalid signature.")
+            raise ValueError("Invalid signature")
+
+        # Record the vote
         poll.votes[user_id] = vote
+        return poll
+
+    def get_all_polls(self) -> list[Poll]:
+        """
+        Retrieve all polls from storage
+        """
+        return list(_polls_db.values())
+
+    def verify_user(self, poll_id: str, verifier_id: str, verified_id: str) -> Poll:
+        """Add verification between two users"""
+        poll = self.get_poll(poll_id)
+        if not poll:
+            raise ValueError("Poll not found")
+            
+        # Verify both users are registered
+        if verifier_id not in poll.registrants or verified_id not in poll.registrants:
+            raise ValueError("Both users must be registered for this poll")
+            
+        # Prevent self-verification
+        if verifier_id == verified_id:
+            raise ValueError("Users cannot verify themselves")
+            
+        # Add the verification
+        poll.add_verification(verifier_id, verified_id)
         return poll
 
 poll_service = PollService()

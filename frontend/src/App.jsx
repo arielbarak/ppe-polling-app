@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Space, Button, Input, Typography, Form, Card, Row, Col } from 'antd';
-import { PlusOutlined, LoginOutlined } from '@ant-design/icons';
+import { Layout, Space, Button, Input, Typography, Form, Card, List } from 'antd';
+import { PlusOutlined, LoginOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { cryptoService } from './services/cryptoService';
+import { pollApi } from './services/pollApi';
 import CreatePoll from './components/CreatePoll';
 import PollRegisterPage from './components/PollRegisterPage';
 import PollVotePage from './components/PollVotePage';
@@ -12,6 +13,22 @@ const { Title, Paragraph } = Typography;
 
 const HomePage = ({ navigateToCreate, navigateToPoll }) => {
   const [form] = Form.useForm();
+  const [availablePolls, setAvailablePolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPolls = async () => {
+      try {
+        const polls = await pollApi.getAllPolls();
+        setAvailablePolls(polls);
+      } catch (error) {
+        console.error('Failed to fetch polls:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPolls();
+  }, []);
 
   const handleJoin = (values) => {
     if (values.pollId?.trim()) {
@@ -67,6 +84,35 @@ const HomePage = ({ navigateToCreate, navigateToPoll }) => {
             />
           </Form.Item>
         </Form>
+      </Card>
+
+      <Card>
+        <Title level={2}>Available Polls</Title>
+        <List
+          loading={loading}
+          dataSource={availablePolls}
+          renderItem={poll => (
+            <List.Item
+              key={poll.id}
+              actions={[
+                <Button 
+                  type="link" 
+                  icon={<ArrowRightOutlined />}
+                  onClick={() => navigateToPoll(poll.id)}
+                >
+                  Join
+                </Button>
+              ]}
+            >
+              <List.Item.Meta
+                title={poll.question}
+                description={`${Object.keys(poll.registrants || {}).length} participants`}
+              />
+            </List.Item>
+          )}
+          bordered
+          style={{ width: '100%' }}
+        />
       </Card>
     </Space>
   );

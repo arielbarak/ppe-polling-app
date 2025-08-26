@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Card, Button, Typography, List, Space, Alert, Spin, Progress, Divider } from 'antd';
+import { Card, Button, Typography, List, Space, Alert, Spin, Progress, Divider, message } from 'antd';
 import { HomeOutlined, CheckCircleOutlined, UserOutlined, LockOutlined } from '@ant-design/icons';
 import { pollApi } from '../api/pollApi';
 import { cryptoService } from '../services/cryptoService';
@@ -144,10 +144,71 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
     }
   };
 
+  const handleVerifyUser = async (userId) => {
+    try {
+        await pollApi.verifyUser(pollId, userId, userPublicKey);
+        socketRef.current.send(JSON.stringify({
+            type: 'verification_accepted',
+            target: userId
+        }));
+        await fetchPoll();
+    } catch (error) {
+        message.error('Failed to verify user');
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+        const userId = await pollApi.getUserId(userPublicKey);
+        const verifications = await pollApi.getUserVerifications(pollId, userPublicKey);
+        
+        if (!verifications.can_vote) {
+            message.error('You need to be verified before voting');
+            navigateToHome();
+        }
+    } catch (error) {
+        message.error('Failed to verify voting eligibility');
+        navigateToHome();
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, [pollId, userPublicKey]);
+
   if (isLoading) return <Spin size="large" />;
   if (!poll) return <Alert message="Poll not found" type="error" />;
 
   const hasVoted = currentUserId && poll.votes[currentUserId];
+
+  const renderVerificationRequests = () => (
+    <Card title="Verification Requests">
+        <List
+            dataSource={Object.entries(poll.registrants)
+                .filter(([id]) => !poll.verifications[id]?.verified_by.includes(currentUserId))
+                .filter(([id]) => id !== currentUserId)}
+            renderItem={([userId, publicKey]) => (
+                <List.Item
+                    actions={[
+                        <Button
+                            type="primary"
+                            onClick={() => handleVerifyUser(userId)}
+                            icon={<CheckCircleOutlined />}
+                        >
+                            Verify User
+                        </Button>
+                    ]}
+                >
+                    <List.Item.Meta
+                        avatar={<UserOutlined />}
+                        title={`User: ${userId.substring(0, 12)}...`}
+                        description="Requesting verification"
+                    />
+                </List.Item>
+            )}
+        />
+    </Card>
+);
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
@@ -194,6 +255,8 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
           />
         </Card>
       )}
+
+      {!hasVoted && renderVerificationRequests()}
 
       <Card title={<Title level={3}>Step 2: Cast Your Vote</Title>}>
         {hasVoted ? (

@@ -1,120 +1,123 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Button, Space, Spin, Alert, List, Progress, message } from 'antd';
-import { CopyOutlined, UserAddOutlined } from '@ant-design/icons';
-import { pollApi } from '../api/pollApi';
+import { Card, Typography, Button, Space, Spin, Alert, List, message } from 'antd';
+import { UserOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { pollApi } from '../services/pollApi';
 
 const { Title, Text, Paragraph } = Typography;
 
 function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
-  const [poll, setPoll] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [registrationMessage, setRegistrationMessage] = useState('');
+    const [poll, setPoll] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [verifications, setVerifications] = useState(null);
+    const [socket, setSocket] = useState(null);
 
-  useEffect(() => {
-    const fetchPoll = async () => {
-      try {
-        const pollData = await pollApi.getPoll(pollId);
-        setPoll(pollData);
-      } finally {
-        setIsLoading(false);
-      }
+    useEffect(() => {
+        const ws = new WebSocket(`ws://localhost:8000/ws/${pollId}/${userPublicKey}`);
+        setSocket(ws);
+
+        ws.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'verification_accepted') {
+                await fetchVerifications();
+            }
+        };
+
+        return () => ws.close();
+    }, [pollId, userPublicKey]);
+
+    const fetchVerifications = async () => {
+        try {
+            const data = await pollApi.getUserVerifications(pollId, userPublicKey);
+            setVerifications(data);
+            if (data.can_vote) {
+                message.success('You have been verified and can now vote!');
+                setTimeout(() => navigateToVote(pollId), 1000);
+            }
+        } catch (error) {
+            message.error('Failed to fetch verifications');
+            console.error('Failed to fetch verifications:', error);
+        }
     };
-    fetchPoll();
-  }, [pollId]);
 
-  const handleRegister = async () => {
-    setIsRegistering(true);
-    setRegistrationMessage('');
-    try {
-      await pollApi.register(pollId, userPublicKey);
-      message.success('Registration successful! Redirecting...');
-      setTimeout(() => navigateToVote(pollId), 1000);
-    } catch (err) {
-      message.error(err.message);
-    } finally {
-      setIsRegistering(false);
-    }
-  };
+    useEffect(() => {
+        const fetchPoll = async () => {
+            try {
+                const pollData = await pollApi.getPoll(pollId);
+                setPoll(pollData);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchPoll();
+    }, [pollId]);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(pollId)
-      .then(() => message.success('Poll ID copied to clipboard!'))
-      .catch(() => message.error('Failed to copy Poll ID'));
-  };
+    const handleRegister = async () => {
+        setIsRegistering(true);
+        try {
+            await pollApi.register(pollId, userPublicKey);
+            await fetchVerifications();
+        } catch (error) {
+            console.error('Registration failed:', error);
+        } finally {
+            setIsRegistering(false);
+        }
+    };
 
-  if (isLoading) return <Spin size="large" />;
-  if (!poll) return <Alert message="Poll not found" type="error" />;
+    if (isLoading) return <Spin size="large" />;
+    if (!poll) return <Alert message="Poll not found" type="error" />;
 
-  return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
-      <Card>
-        <Title level={2} style={{ textAlign: 'center' }}>{poll.question}</Title>
-      </Card>
+    return (
+        <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
+            <Card>
+                <Title level={2}>{poll.question}</Title>
+            </Card>
 
-      <Card title={<Title level={3}>Share this Poll</Title>}>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Paragraph>Use this ID to let others join the poll:</Paragraph>
-          <Space>
-            <Text code copyable>{pollId}</Text>
-            <Button 
-              icon={<CopyOutlined />} 
-              onClick={copyToClipboard}
-              type="primary"
-            >
-              Copy ID
-            </Button>
-          </Space>
-        </Space>
-      </Card>
+            <Card title={<Title level={3}>Registration Status</Title>}>
+                {verifications ? (
+                    <>
+                        <Alert
+                            message={
+                                verifications.can_vote
+                                    ? "You're verified and ready to vote!"
+                                    : `You need ${2 - verifications.verification_count} more verifications to vote`
+                            }
+                            type={verifications.can_vote ? "success" : "info"}
+                            showIcon
+                        />
+                        <List
+                            style={{ marginTop: '20px' }}
+                            header={<Text strong>Verified by:</Text>}
+                            dataSource={verifications.verified_by}
+                            renderItem={verifier => (
+                                <List.Item>
+                                    <UserOutlined /> Verified User
+                                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                                </List.Item>
+                            )}
+                        />
+                    </>
+                ) : (
+                    <Button
+                        type="primary"
+                        onClick={handleRegister}
+                        loading={isRegistering}
+                    >
+                        Register for Poll
+                    </Button>
+                )}
+            </Card>
 
-      <Card title={<Title level={3}>Registration</Title>}>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Paragraph>You must register to participate in this poll.</Paragraph>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            loading={isRegistering}
-            onClick={handleRegister}
-            size="large"
-          >
-            {isRegistering ? 'Registering...' : 'Register Now'}
-          </Button>
-          {registrationMessage && (
-            <Alert
-              message={registrationMessage}
-              type={registrationMessage.startsWith('Error') ? 'error' : 'success'}
-            />
-          )}
-        </Space>
-      </Card>
-
-      <Card title={<Title level={3}>Live Results</Title>}>
-        <List
-          dataSource={poll.options}
-          renderItem={(option) => {
-            const voteCount = Object.values(poll.votes).filter(v => v.option === option).length;
-            const totalVotes = Object.keys(poll.votes).length;
-            const percentage = totalVotes ? (voteCount / totalVotes) * 100 : 0;
-
-            return (
-              <List.Item>
-                <List.Item.Meta
-                  title={option}
-                  description={
-                    <Progress 
-                      percent={Math.round(percentage)} 
-                      format={() => `${voteCount} vote${voteCount !== 1 ? 's' : ''}`}
-                    />
-                  }
+            {verifications && !verifications.can_vote && (
+                <Alert
+                    message="Waiting for Verification"
+                    description="Other participants need to verify you before you can vote. Stay on this page."
+                    type="info"
+                    showIcon
                 />
-              </List.Item>
-            );
-          }}
-        />
-      </Card>
-    </Space>
-  );
+            )}
+        </Space>
+    );
 }
 
 export default PollRegisterPage;
