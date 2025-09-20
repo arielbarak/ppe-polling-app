@@ -114,11 +114,141 @@ const signMessage = async (privateKey, message) => {
   return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
+/**
+ * Encrypts text using AES-GCM with a password-derived key
+ * @param {string} text - The text to encrypt
+ * @param {string} password - The password to derive the key from
+ * @returns {Promise<string>} Base64 encoded encrypted data with IV
+ */
+const encryptText = async (text, password) => {
+  try {
+    // Convert password to key using PBKDF2
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
+    
+    // Generate a random salt
+    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    
+    // Import password as key material
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      passwordBuffer,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+    
+    // Derive AES key from password
+    const key = await window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt']
+    );
+    
+    // Generate random IV
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    
+    // Encrypt the text
+    const encodedText = encoder.encode(text);
+    const encryptedBuffer = await window.crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv
+      },
+      key,
+      encodedText
+    );
+    
+    // Combine salt + iv + encrypted data
+    const combined = new Uint8Array(salt.length + iv.length + encryptedBuffer.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(encryptedBuffer), salt.length + iv.length);
+    
+    // Return base64 encoded result
+    return btoa(String.fromCharCode(...combined));
+  } catch (error) {
+    console.error('Error encrypting text:', error);
+    throw error;
+  }
+};
+
+/**
+ * Decrypts text using AES-GCM with a password-derived key
+ * @param {string} encryptedData - Base64 encoded encrypted data
+ * @param {string} password - The password to derive the key from
+ * @returns {Promise<string>} The decrypted text
+ */
+const decryptText = async (encryptedData, password) => {
+  try {
+    // Convert from base64
+    const combined = new Uint8Array(atob(encryptedData).split('').map(c => c.charCodeAt(0)));
+    
+    // Extract components
+    const salt = combined.slice(0, 16);
+    const iv = combined.slice(16, 28);
+    const encrypted = combined.slice(28);
+    
+    // Convert password to key using PBKDF2
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
+    
+    // Import password as key material
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      passwordBuffer,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+    
+    // Derive AES key from password
+    const key = await window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+    
+    // Decrypt the data
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv
+      },
+      key,
+      encrypted
+    );
+    
+    // Convert back to text
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedBuffer);
+  } catch (error) {
+    console.error('Error decrypting text:', error);
+    throw error;
+  }
+};
+
 // Export all the functions so other parts of our app can use them
 export const cryptoService = {
   generateKeys,
   saveKeys,
   loadKeys,
   getPublicKeyAsJwk,
-  signMessage, // Add the new function to the export
+  signMessage,
+  encryptText,
+  decryptText
 };

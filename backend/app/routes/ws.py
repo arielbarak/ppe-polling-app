@@ -22,6 +22,23 @@ async def websocket_endpoint(websocket: WebSocket, poll_id: str, client_id: str)
             print(f"\n[SERVER LOG] Message received from user: {client_id[:10]}...")
             print(f"[SERVER LOG] Raw data: {data}")
             
+            # Validate required message fields
+            if not isinstance(message, dict):
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "invalid_message",
+                    "message": "Message must be a JSON object."
+                })
+                continue
+                
+            if "type" not in message:
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "missing_type",
+                    "message": "Message must include a 'type' field."
+                })
+                continue
+                
             target_id = message.get("target")
             
             print(f"[SERVER LOG] Parsed message type: {message.get('type')}")
@@ -37,8 +54,20 @@ async def websocket_endpoint(websocket: WebSocket, poll_id: str, client_id: str)
                     print(f"[SERVER LOG] Message successfully relayed to target.")
                 else:
                     print(f"[SERVER LOG] ERROR: Target WebSocket NOT FOUND for user {target_id[:10]}...")
+                    # Send error message back to sender
+                    await websocket.send_json({
+                        "type": "error",
+                        "error": "target_offline",
+                        "message": "The user you are trying to reach is offline or not available.",
+                        "target": target_id
+                    })
             else:
                 print(f"[SERVER LOG] Message has no target. Not relaying.")
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "no_target",
+                    "message": "The message must specify a target user."
+                })
 
             if message["type"] == "request_verification":
                 # Broadcast verification request to target user
@@ -63,5 +92,11 @@ async def websocket_endpoint(websocket: WebSocket, poll_id: str, client_id: str)
                 )
     except WebSocketDisconnect:
         manager.disconnect(poll_id, client_id)
+        print(f"[SERVER LOG] Client {client_id[:10]} disconnected.")
     except json.JSONDecodeError:
-        print(f"Received non-JSON message from {client_id[:10]}")
+        print(f"[SERVER LOG] Received non-JSON message from {client_id[:10]}")
+        await websocket.send_json({
+            "type": "error",
+            "error": "invalid_format",
+            "message": "Invalid message format. Messages must be valid JSON."
+        })
