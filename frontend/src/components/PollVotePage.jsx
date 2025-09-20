@@ -24,6 +24,8 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   const [isLoading, setIsLoading] = useState(true);
   const socketRef = useRef(null);
   const [certifiedPeers, setCertifiedPeers] = useState(new Set());
+  const certifiedPeersRef = useRef(certifiedPeers);
+  certifiedPeersRef.current = certifiedPeers;
 
   const [ppeState, setPpeState] = useState({
     step: 'idle',
@@ -285,55 +287,41 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       if (msg.type === 'reveal') {
         console.log('Reveal message received from:', msg.from.substring(0,8));
         
-        // Process the reveal message
-        setPpeState(prev => {
-          console.log('Current PPE state when processing reveal:', prev.step);
-          
-          if (msg.solution === null) {
-            message.error(`Peer ${msg.from.substring(0,8)} failed to provide a solution`);
-            return { step: 'idle', peerId: null, myChallengeText: null, peerChallengeText: null, mySolutionToPeerChallenge: null, peerSolutionCommitment: null, showCaptchaModal: false };
-          }
-          
-          const peerCommitment = prev.peerSolutionCommitment;
-          
-          if (!peerCommitment) {
-            // Check if this peer is already certified (duplicate reveal)
-            if (certifiedPeers.has(msg.from)) {
-              console.log('Received duplicate reveal from already certified peer');
-              return prev; // Keep current state, ignore duplicate
+        // Check if this peer is already certified to avoid duplicate processing
+        if (certifiedPeersRef.current.has(msg.from)) {
+          console.log('Ignoring duplicate reveal from already certified peer');
+          return;
+        }
+        
+        if (msg.solution === null) {
+          message.error(`Peer ${msg.from.substring(0,8)} failed to provide a solution`);
+          return;
+        }
+        
+        // Store the commitment temporarily in case state is reset
+        const currentState = ppeStateRef.current;
+        let peerCommitment = currentState.peerSolutionCommitment;
+        
+        // If no commitment in current state, but we're expecting this peer, it might be a race condition
+        if (!peerCommitment && (currentState.peerId === msg.from || currentState.step !== 'idle')) {
+          console.warn('Race condition detected: reveal arrived before commitment was processed');
+          // Give it a moment for the commitment to be processed
+          setTimeout(() => {
+            // Retry processing this reveal message
+            const retryState = ppeStateRef.current;
+            if (retryState.peerSolutionCommitment && !certifiedPeersRef.current.has(msg.from)) {
+              processRevealMessage(msg, retryState.peerSolutionCommitment);
             }
-            
-            console.warn('Reveal received but no commitment in state. Current state:', prev);
-            // Don't immediately error - try to find commitment from recent messages
-            return prev; // Keep state for now
-          } 
-          
-          const computedCommitment = sha256(msg.solution);
-          console.log('Verifying commitment match...');
-          
-          const commitmentCheck = computedCommitment === peerCommitment;
-          if (commitmentCheck) {
-            message.success(`Peer ${msg.from.substring(0,8)} has been certified!`);
-            setCertifiedPeers(prevCertified => new Set(prevCertified).add(msg.from));
-            
-            // Only reset to idle if this completes the PPE process
-            // Use setTimeout to allow any pending reveal messages to be processed
-            setTimeout(() => {
-              setPpeState(current => {
-                // Only reset if we're still in revealing state
-                if (current.step === 'revealing' || current.step === 'solving') {
-                  return { step: 'idle', peerId: null, myChallengeText: null, peerChallengeText: null, mySolutionToPeerChallenge: null, peerSolutionCommitment: null, showCaptchaModal: false };
-                }
-                return current;
-              });
-            }, 100);
-            
-            return { ...prev, step: 'completed' }; // Mark as completed temporarily
-          } else {
-            message.error(`Peer ${msg.from.substring(0,8)} provided an invalid solution.`);
-            return { step: 'idle', peerId: null, myChallengeText: null, peerChallengeText: null, mySolutionToPeerChallenge: null, peerSolutionCommitment: null, showCaptchaModal: false };
-          }
-        });
+          }, 50);
+          return;
+        }
+        
+        if (!peerCommitment) {
+          console.warn('No peer commitment found and not in active PPE session');
+          return;
+        }
+        
+        processRevealMessage(msg, peerCommitment);
       }
     };
 
@@ -455,6 +443,28 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   const handleCaptchaModalClose = () => {
     setPpeState(prev => ({ ...prev, showCaptchaModal: false, step: 'idle' }));
     message.info('CAPTCHA challenge cancelled');
+  };
+
+  // Helper function to process reveal messages
+  const processRevealMessage = (msg, peerCommitment) => {
+    const computedCommitment = sha256(msg.solution);
+    console.log('Verifying commitment match...');
+    
+    const commitmentCheck = computedCommitment === peerCommitment;
+    if (commitmentCheck) {
+      message.success(`Peer ${msg.from.substring(0,8)} has been certified!`);
+      setCertifiedPeers(prevCertified => new Set(prevCertified).add(msg.from));
+      
+      // Reset PPE state after successful certification
+      setPpeState(prev => {
+        if (prev.peerId === msg.from || prev.step === 'revealing') {
+          return { step: 'idle', peerId: null, myChallengeText: null, peerChallengeText: null, mySolutionToPeerChallenge: null, peerSolutionCommitment: null, showCaptchaModal: false };
+        }
+        return prev;
+      });
+    } else {
+      message.error(`Peer ${msg.from.substring(0,8)} provided an invalid solution.`);
+    }
   };
 
   const handleVote = async (option) => {
