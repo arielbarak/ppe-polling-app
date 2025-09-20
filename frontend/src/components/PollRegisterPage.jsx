@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Typography, Button, Space, Spin, Alert, List, message } from 'antd';
-import { UserOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { UserOutlined, CheckCircleOutlined, LoadingOutlined, HomeOutlined } from '@ant-design/icons';
 import { pollApi } from '../services/pollApi';
 
 const { Title, Text, Paragraph } = Typography;
 
-function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
+function PollRegisterPage({ pollId, userPublicKey, navigateToVote, navigateToHome }) {
     const [poll, setPoll] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRegistering, setIsRegistering] = useState(false);
@@ -23,10 +23,19 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
                 setSocket(ws);
 
                 ws.onmessage = async (event) => {
-                    const message = JSON.parse(event.data);
-                    if (message.type === 'verification_accepted') {
+                    const wsMessage = JSON.parse(event.data);
+                    if (wsMessage.type === 'verification_accepted') {
                         await fetchVerifications();
                         await fetchPoll(); // Refresh poll data to get updated verifications
+                    } else if (wsMessage.type === 'user_registered') {
+                        console.log('WebSocket: user_registered event received in PollRegisterPage, refreshing poll data');
+                        await fetchPoll(); // Refresh poll data to show new registered users
+                        // Show notification for new user
+                        const userId = wsMessage.userId || wsMessage.from;
+                        const currentUserId = await pollApi.getUserId(userPublicKey);
+                        if (userId && userId !== currentUserId) {
+                            message.info(`New user joined: ${userId.substring(0, 8)}...`, 3);
+                        }
                     }
                 };
             } catch (err) {
@@ -42,18 +51,24 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
     const fetchVerifications = async () => {
         try {
             const data = await pollApi.getUserVerifications(pollId, userPublicKey);
+            console.log('Verification status update:', { 
+                can_vote: data.can_vote, 
+                verified_by_count: data.verified_by.length,
+                verified_by: data.verified_by.map(id => id.substring(0, 8) + '...')
+            });
             setVerifications(data);
             if (data.can_vote) {
+                console.log('User can now vote! Navigating to vote page...');
                 message.success('You have been verified and can now vote!');
                 setTimeout(() => navigateToVote(pollId), 1000);
             }
             // Also fetch poll data to ensure we have the latest registrations and verifications
             await fetchPoll();
         } catch (error) {
-            // If the error is because we're not registered yet, don't show an error
-            if (!error.message?.includes('User not registered')) {
-                message.error('Failed to fetch verifications');
+            // Only show error if it's not about being unregistered
+            if (!error.message?.includes('User not registered') && !error.message?.includes('not found')) {
                 console.error('Failed to fetch verifications:', error);
+                // Don't show error message to user for expected "not registered" errors
             }
         }
     };
@@ -73,6 +88,34 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
     useEffect(() => {
         fetchPoll();
     }, [pollId]);
+
+    // Add polling mechanism to check verification status every 3 seconds (only if registered)
+    useEffect(() => {
+        // Only start polling if we have poll data and user is registered
+        if (!poll || !pollId || !userPublicKey) return;
+        
+        const currentUserId = pollApi.getUserId(userPublicKey);
+        const isRegistered = poll.registrants && currentUserId && poll.registrants[currentUserId];
+        
+        if (!isRegistered) {
+            console.log('User not registered yet, skipping verification polling');
+            return;
+        }
+
+        // Initial fetch for registered users
+        fetchVerifications();
+
+        // Set up polling every 3 seconds to check verification status
+        const verificationInterval = setInterval(() => {
+            console.log('Polling for verification status updates...');
+            fetchVerifications();
+        }, 3000);
+
+        // Cleanup interval on unmount
+        return () => {
+            clearInterval(verificationInterval);
+        };
+    }, [poll, pollId, userPublicKey]);
 
     const handleVerifyUser = async (userId) => {
         try {
@@ -121,7 +164,7 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
                         <Alert
                             message={
                                 verifications.can_vote
-                                    ? "You're verified and ready to vote!"
+                                    ? "You're verified! Complete PPE challenges with your neighbors to start voting."
                                     : `You need ${2 - verifications.verification_count} more verifications to vote`
                             }
                             type={verifications.can_vote ? "success" : "info"}
@@ -204,13 +247,32 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
             )}
 
             {verifications && !verifications.can_vote && (
-                <Alert
-                    message="Waiting for Verification"
-                    description="Other participants need to verify you before you can vote. Stay on this page."
-                    type="info"
-                    showIcon
-                />
+                <Space direction="vertical" style={{ width: '100%' }}>
+                    <Alert
+                        message="Waiting for Verification"
+                        description={`You have ${verifications.verified_by.length} out of 2 required verifications. Other participants need to verify you before you can vote. Stay on this page.`}
+                        type="info"
+                        showIcon
+                    />
+                    <Button 
+                        onClick={() => {
+                            console.log('Manual verification check triggered');
+                            fetchVerifications();
+                        }}
+                        type="default"
+                    >
+                        Check Status Now
+                    </Button>
+                </Space>
             )}
+
+            <Button 
+                icon={<HomeOutlined />}
+                onClick={navigateToHome}
+                style={{ alignSelf: 'center' }}
+            >
+                Back to Home
+            </Button>
         </Space>
     );
 }

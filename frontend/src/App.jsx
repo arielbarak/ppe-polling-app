@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Space, Button, Input, Typography, Form, Card, List } from 'antd';
-import { PlusOutlined, LoginOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { Layout, Space, Button, Input, Typography, Form, Card, List, message, Tooltip } from 'antd';
+import { PlusOutlined, LoginOutlined, ArrowRightOutlined, CheckCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import { cryptoService } from './services/cryptoService';
 import { pollApi } from './services/pollApi';
 import CreatePoll from './components/CreatePoll';
@@ -11,10 +11,11 @@ import './App.css';
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph } = Typography;
 
-const HomePage = ({ navigateToCreate, navigateToPoll }) => {
+const HomePage = ({ navigateToCreate, navigateToPoll, userPublicKey }) => {
   const [form] = Form.useForm();
   const [availablePolls, setAvailablePolls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [checkingPoll, setCheckingPoll] = useState(null);
 
   useEffect(() => {
     const fetchPolls = async () => {
@@ -30,9 +31,11 @@ const HomePage = ({ navigateToCreate, navigateToPoll }) => {
     fetchPolls();
   }, []);
 
-  const handleJoin = (values) => {
+  const handleJoin = async (values) => {
     if (values.pollId?.trim()) {
-      navigateToPoll(values.pollId.trim());
+      setCheckingPoll(values.pollId.trim());
+      await navigateToPoll(values.pollId.trim());
+      setCheckingPoll(null);
     }
   };
 
@@ -65,20 +68,25 @@ const HomePage = ({ navigateToCreate, navigateToPoll }) => {
                 <Button 
                   type="primary" 
                   icon={<LoginOutlined />}
-                  onClick={() => {
+                  onClick={async () => {
                     const pollId = form.getFieldValue('pollId');
                     if (pollId?.trim()) {
-                      navigateToPoll(pollId.trim());
+                      setCheckingPoll(pollId.trim());
+                      await navigateToPoll(pollId.trim());
+                      setCheckingPoll(null);
                     }
                   }}
+                  loading={checkingPoll === form.getFieldValue('pollId')}
                 >
                   Join Poll
                 </Button>
               }
               size="large"
-              onSearch={(value) => {
+              onSearch={async (value) => {
                 if (value?.trim()) {
-                  navigateToPoll(value.trim());
+                  setCheckingPoll(value.trim());
+                  await navigateToPoll(value.trim());
+                  setCheckingPoll(null);
                 }
               }}
             />
@@ -91,25 +99,49 @@ const HomePage = ({ navigateToCreate, navigateToPoll }) => {
         <List
           loading={loading}
           dataSource={availablePolls}
-          renderItem={poll => (
-            <List.Item
-              key={poll.id}
-              actions={[
-                <Button 
-                  type="link" 
-                  icon={<ArrowRightOutlined />}
-                  onClick={() => navigateToPoll(poll.id)}
-                >
-                  Join
-                </Button>
-              ]}
-            >
-              <List.Item.Meta
-                title={poll.question}
-                description={`${Object.keys(poll.registrants || {}).length} participants`}
-              />
-            </List.Item>
-          )}
+          renderItem={poll => {
+            // Check if user is already registered in this poll
+            const isRegistered = userPublicKey && Object.values(poll.registrants || {}).some(
+              registeredKey => JSON.stringify(registeredKey) === JSON.stringify(userPublicKey)
+            );
+            
+            return (
+              <List.Item
+                key={poll.id}
+                actions={[
+                  <Tooltip title={isRegistered ? "Go to voting page" : "Register for this poll"}>
+                    <Button 
+                      type={isRegistered ? "default" : "link"}
+                      icon={isRegistered ? <CheckCircleOutlined /> : <UserAddOutlined />}
+                      onClick={async () => {
+                        setCheckingPoll(poll.id);
+                        await navigateToPoll(poll.id);
+                        setCheckingPoll(null);
+                      }}
+                      loading={checkingPoll === poll.id}
+                    >
+                      {isRegistered ? 'Continue' : 'Join'}
+                    </Button>
+                  </Tooltip>
+                ]}
+              >
+                <List.Item.Meta
+                  title={
+                    <Space>
+                      {poll.question}
+                      {isRegistered && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                    </Space>
+                  }
+                  description={
+                    <Space direction="vertical" size="small">
+                      <span>{`${Object.keys(poll.registrants || {}).length} participants`}</span>
+                      {isRegistered && <span style={{ color: '#52c41a', fontSize: '12px' }}>✓ You are registered</span>}
+                    </Space>
+                  }
+                />
+              </List.Item>
+            );
+          }}
           bordered
           style={{ width: '100%' }}
         />
@@ -125,7 +157,38 @@ function App() {
   // --- Navigation Functions ---
   const navigateToHome = () => setView({ page: 'home', pollId: null });
   const navigateToCreate = () => setView({ page: 'create', pollId: null });
-  const navigateToPoll = (pollId) => setView({ page: 'register', pollId: pollId });
+  const navigateToPoll = async (pollId) => {
+    if (!publicKey) {
+      console.warn('Public key not ready yet');
+      return;
+    }
+    
+    try {
+      // Check if user is already registered in this poll
+      console.log('Checking registration status for poll:', pollId);
+      const poll = await pollApi.getPoll(pollId);
+      
+      // Find if user's public key is already registered
+      const isRegistered = Object.values(poll.registrants || {}).some(
+        registeredKey => JSON.stringify(registeredKey) === JSON.stringify(publicKey)
+      );
+      
+      if (isRegistered) {
+        console.log('User already registered, navigating to vote page');
+        message.success('Welcome back! Taking you to the voting page...');
+        setView({ page: 'vote', pollId: pollId });
+      } else {
+        console.log('User not registered, navigating to register page');
+        message.info('Taking you to the registration page...');
+        setView({ page: 'register', pollId: pollId });
+      }
+    } catch (error) {
+      console.error('Failed to check poll registration status:', error);
+      message.error('Could not verify registration status. Taking you to registration page.');
+      // If there's an error fetching the poll, default to registration page
+      setView({ page: 'register', pollId: pollId });
+    }
+  };
   const navigateToVote = (pollId) => setView({ page: 'vote', pollId: pollId });
 
   useEffect(() => {
@@ -146,12 +209,12 @@ function App() {
       case 'create':
         return <CreatePoll navigateToPoll={navigateToPoll} />;
       case 'register':
-        return <PollRegisterPage pollId={view.pollId} userPublicKey={publicKey} navigateToVote={navigateToVote} />;
+        return <PollRegisterPage pollId={view.pollId} userPublicKey={publicKey} navigateToVote={navigateToVote} navigateToHome={navigateToHome} />;
       case 'vote':
         return <PollVotePage pollId={view.pollId} userPublicKey={publicKey} navigateToHome={navigateToHome} />;
       case 'home':
       default:
-        return <HomePage navigateToCreate={navigateToCreate} navigateToPoll={navigateToPoll} />;
+        return <HomePage navigateToCreate={navigateToCreate} navigateToPoll={navigateToPoll} userPublicKey={publicKey} />;
     }
   };
 

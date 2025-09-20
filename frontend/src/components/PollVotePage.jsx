@@ -26,6 +26,10 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   const [certifiedPeers, setCertifiedPeers] = useState(new Set());
   const certifiedPeersRef = useRef(certifiedPeers);
   certifiedPeersRef.current = certifiedPeers;
+  
+  const [recentlyJoinedUsers, setRecentlyJoinedUsers] = useState(new Set());
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const previousPollRef = useRef(null);
 
   const [ppeState, setPpeState] = useState({
     step: 'idle',
@@ -56,7 +60,52 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   const fetchPoll = async () => {
     try {
       const pollData = await pollApi.getPoll(pollId);
+      
+      // Check for new users by comparing with previous poll data
+      if (previousPollRef.current) {
+        const previousUsers = new Set(Object.keys(previousPollRef.current.registrants));
+        const currentUsers = new Set(Object.keys(pollData.registrants));
+        
+        // Find newly joined users
+        const newUsers = [...currentUsers].filter(userId => !previousUsers.has(userId));
+        
+        // Show notifications for new users (except current user)
+        newUsers.forEach(userId => {
+          if (userId !== currentUserId) {
+            console.log('New user detected:', userId.substring(0, 8));
+            message.info(`New user joined: ${userId.substring(0, 8)}...`, 3);
+            
+            // Add to recently joined users for visual highlight
+            setRecentlyJoinedUsers(prev => new Set(prev).add(userId));
+            // Remove from recently joined after 5 seconds
+            setTimeout(() => {
+              setRecentlyJoinedUsers(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(userId);
+                return newSet;
+              });
+            }, 5000);
+          }
+        });
+        
+        // Check for new votes
+        const previousVotes = Object.keys(previousPollRef.current.votes).length;
+        const currentVotes = Object.keys(pollData.votes).length;
+        if (currentVotes > previousVotes) {
+          console.log('New vote detected');
+          message.info(`New vote cast! Total votes: ${currentVotes}`, 2);
+        }
+      }
+      
+      // Store current poll data for next comparison
+      previousPollRef.current = pollData;
       setPoll(pollData);
+      setLastUpdated(new Date());
+      
+      // Also refresh PPE certifications if user is available
+      if (userPublicKey && pollData) {
+        loadPPECertifications();
+      }
     } catch (error) {
       console.error('Failed to fetch poll:', error);
       // Don't show error message for network issues during background fetching
@@ -64,11 +113,44 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       setIsLoading(false);
     }
   };
+
+  const loadPPECertifications = async () => {
+    if (!userPublicKey || !pollId) return;
+    
+    try {
+      const certifications = await pollApi.getPPECertifications(pollId, userPublicKey);
+      console.log('Loaded PPE certifications from backend:', certifications.certified_peers);
+      setCertifiedPeers(new Set(certifications.certified_peers));
+    } catch (error) {
+      console.error('Failed to load PPE certifications:', error);
+      // Don't show error for unregistered users
+      if (!error.message?.includes('not registered')) {
+        // Keep existing state on error
+      }
+    }
+  };
   
-  // Initial fetch only - rely on WebSocket for updates
+  // Initial fetch and setup polling
   useEffect(() => {
     fetchPoll();
+    
+    // Set up polling every 5 seconds as backup (WebSocket handles most real-time updates)
+    const pollInterval = setInterval(() => {
+      fetchPoll();
+    }, 5000);
+    
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, [pollId]);
+
+  // Initial PPE certifications load - subsequent loads happen via polling
+  useEffect(() => {
+    if (poll && userPublicKey && currentUserId) {
+      loadPPECertifications();
+    }
+  }, [currentUserId]); // Only run when currentUserId changes, not on every poll update
 
   useEffect(() => {
     if (!pollId || !currentUserId) return;
@@ -105,9 +187,25 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         return;
       }
 
-      if (msg.type === 'user_registered' || msg.type === 'user_verified') { 
-        console.log('User change detected, refreshing poll data');
+      // Handle real-time updates for registration and verification stages
+      if (msg.type === 'user_registered') { 
+        console.log('WebSocket: user_registered event received, triggering fetchPoll()');
+        fetchPoll();
+        // Show notification for new user
+        const userId = msg.userId || msg.from;
+        if (userId && userId !== currentUserId) {
+          message.info(`New user joined: ${userId.substring(0, 8)}...`, 3);
+        }
+      }
+
+      if (msg.type === 'user_verified') { 
         fetchPoll(); 
+        message.success('User verification updated!', 2);
+      }
+
+      if (msg.type === 'vote_cast') {
+        fetchPoll();
+        message.info(`New vote cast for: ${msg.option}`, 2);
       }
       
       if (msg.type === 'request_ppe') {
@@ -126,8 +224,15 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         
         Modal.confirm({
           title: 'PPE Certification Request',
-          content: `Accept certification request from peer ${msg.from.substring(0,8)}...?`,
+          content: (
+            <div>
+              <p>Peer {msg.from.substring(0,8)}... wants to complete Proof of Private Effort (PPE) verification with you.</p>
+              <p><strong>Both participants will solve CAPTCHA challenges to prove they are human.</strong></p>
+              <p>Accept this request?</p>
+            </div>
+          ),
           onOk() {
+            message.info('PPE certification accepted! Preparing challenges...');
             setPpeState({
               ...currentPpeState,
               step: 'challenging',
@@ -178,7 +283,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
           return;
         }
 
-        message.success(`Peer ${msg.from.substring(0,8)}... accepted your request`);
+        message.success(`Peer ${msg.from.substring(0,8)}... accepted your PPE request! Starting challenges...`);
         
         // Generate our challenge and send it to them
         const myChallenge = generateCaptchaText();
@@ -269,13 +374,15 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
               solution: prev.mySolutionToPeerChallenge,
               timeTaken
             }));
+            message.success('Peer completed their challenge! Verifying solutions...');
             return { 
               ...prev, 
               step: 'revealing',
               peerSolutionCommitment: msg.commitment 
             };
           } else {
-            // Still need to solve it
+            // Still need to solve it - peer finished first, waiting for us
+            message.info(`Peer ${msg.from.substring(0,8)}... completed their challenge. Please complete yours!`);
             return { 
               ...prev,
               peerSolutionCommitment: msg.commitment 
@@ -289,7 +396,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         
         // Check if this peer is already certified to avoid duplicate processing
         if (certifiedPeersRef.current.has(msg.from)) {
-          console.log('Ignoring duplicate reveal from already certified peer');
           return;
         }
         
@@ -304,7 +410,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         
         // If no commitment in current state, but we're expecting this peer, it might be a race condition
         if (!peerCommitment && (currentState.peerId === msg.from || currentState.step !== 'idle')) {
-          console.warn('Race condition detected: reveal arrived before commitment was processed');
           // Give it a moment for the commitment to be processed
           setTimeout(() => {
             // Retry processing this reveal message
@@ -317,7 +422,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         }
         
         if (!peerCommitment) {
-          console.warn('No peer commitment found and not in active PPE session');
           return;
         }
         
@@ -347,9 +451,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       return;
     }
 
-    console.log('WebSocket state:', socketRef.current?.readyState);
-    console.log('WebSocket OPEN constant:', WebSocket.OPEN);
-    
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       message.info(`Sending PPE request to peer ${neighborId.substring(0, 8)}...`);
       
@@ -392,7 +493,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         `Connection state: ${socketRef.current.readyState}` : 
         'No WebSocket connection';
       message.error(`WebSocket connection not ready. ${status}. Please wait and try again.`);
-      console.error('WebSocket not ready:', socketRef.current);
     }
   };
   
@@ -423,6 +523,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
           solution: solution,
           timeTaken
         }));
+        message.success('CAPTCHA completed! Verifying with peer...');
         return { 
           ...prev, 
           step: 'revealing',
@@ -431,6 +532,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         };
       } else {
         // Wait for their commitment
+        message.info(`CAPTCHA completed! Waiting for peer ${prev.peerId.substring(0,8)}... to finish their challenge.`);
         return { 
           ...prev, 
           mySolutionToPeerChallenge: solution,
@@ -452,8 +554,34 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
     
     const commitmentCheck = computedCommitment === peerCommitment;
     if (commitmentCheck) {
-      message.success(`Peer ${msg.from.substring(0,8)} has been certified!`);
-      setCertifiedPeers(prevCertified => new Set(prevCertified).add(msg.from));
+      // Show a prominent success message for certification
+      message.success({
+        content: `Certification Complete! Peer ${msg.from.substring(0,8)}... has been verified and certified.`,
+        duration: 4,
+        style: {
+          marginTop: '20vh',
+        },
+      });
+      console.log('Adding peer to certified list:', msg.from.substring(0,8));
+      setCertifiedPeers(prevCertified => {
+        const newSet = new Set(prevCertified).add(msg.from);
+        console.log('Updated certified peers:', Array.from(newSet).map(id => id.substring(0,8)));
+        return newSet;
+      });
+
+      // Save PPE certification to backend
+      if (poll && userPublicKey) {
+        const peerPublicKey = poll.registrants[msg.from];
+        if (peerPublicKey) {
+          pollApi.recordPPECertification(poll.id, userPublicKey, peerPublicKey)
+            .then(() => {
+              console.log('PPE certification saved to backend');
+            })
+            .catch((error) => {
+              console.error('Failed to save PPE certification:', error);
+            });
+        }
+      }
       
       // Reset PPE state after successful certification
       setPpeState(prev => {
@@ -503,6 +631,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
 
   const [canVote, setCanVote] = useState(false);
   const [hasRequiredCertifications, setHasRequiredCertifications] = useState(false);
+  const [userVerificationComplete, setUserVerificationComplete] = useState(false);
 
   const checkPPECompletion = () => {
     if (!currentUserId || !poll) return false;
@@ -512,7 +641,13 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       Object.keys(poll.registrants).filter(id => id !== currentUserId).sort()
     );
     
-    return myNeighbors.length > 0 && myNeighbors.every(neighborId => certifiedPeers.has(neighborId));
+    const isComplete = myNeighbors.length > 0 && myNeighbors.every(neighborId => certifiedPeers.has(neighborId));
+    console.log('PPE Completion Check:', { 
+      myNeighbors, 
+      certifiedPeers: Array.from(certifiedPeers), 
+      isComplete 
+    });
+    return isComplete;
   };
 
   const fetchUserData = async () => {
@@ -521,6 +656,20 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         
         const ppeCompleted = checkPPECompletion();
         setHasRequiredCertifications(ppeCompleted);
+        
+        // Check if verification just became complete
+        const wasVerificationComplete = userVerificationComplete;
+        const isVerificationComplete = verifications.can_vote;
+        setUserVerificationComplete(isVerificationComplete);
+        
+        // Show success message when verification completes (but don't auto-start PPE)
+        if (!wasVerificationComplete && isVerificationComplete && !ppeCompleted) {
+            console.log('Verification completed! User can now start PPE manually.');
+            message.success({
+                content: 'Congratulations! You are now verified and can start the PPE process with your neighbors.',
+                duration: 5,
+            });
+        }
         
         // Only allow voting if both verifications and PPE are complete
         const canVoteNow = verifications.can_vote && ppeCompleted;
@@ -531,6 +680,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         }
         setCanVote(false);
         setHasRequiredCertifications(false);
+        setUserVerificationComplete(false);
     }
   };
 
@@ -540,7 +690,11 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       if (poll && currentUserId) {
         const ppeCompleted = checkPPECompletion();
         setHasRequiredCertifications(ppeCompleted);
-        if (canVote && !ppeCompleted) {
+        
+        // If PPE is now complete, check full voting eligibility
+        if (ppeCompleted) {
+          await fetchUserData();
+        } else if (canVote && !ppeCompleted) {
           setCanVote(false);
         }
       }
@@ -554,6 +708,33 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       fetchUserData();
     }
   }, [poll, pollId, userPublicKey]);
+
+  // Auto-highlight voting section when user becomes eligible to vote
+  useEffect(() => {
+    console.log('Auto-highlight check:', { poll: !!poll, currentUserId: !!currentUserId, canVote, hasVoted: poll?.votes[currentUserId] });
+    if (poll && currentUserId && canVote && !poll.votes[currentUserId]) {
+      console.log('Triggering auto-highlight for voting section!');
+      // Show prominent success message
+      message.success({
+        content: 'Congratulations! You have completed all PPE verifications and can now vote!',
+        duration: 6,
+        style: {
+          marginTop: '20vh',
+        },
+      });
+      
+      // Scroll to voting section after a brief delay
+      setTimeout(() => {
+        const votingSection = document.querySelector('[data-section="voting"]');
+        if (votingSection) {
+          votingSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 1000);
+    }
+  }, [canVote, poll, currentUserId]);
 
   if (isLoading) return <Spin size="large" />;
   if (!poll) return <Alert message="Poll not found" type="error" />;
@@ -573,7 +754,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
               <Text>Your ID: {currentUserId ? currentUserId.substring(0, 12) + '...' : 'Loading...'}</Text>
               <Text>
                 You have {myVerificationCount} verification{myVerificationCount !== 1 ? 's' : ''}
-                {myVerificationCount >= 2 ? ' (Ready to vote)' : ` (Need ${2 - myVerificationCount} more)`}
+                {myVerificationCount >= 2 ? ' (Verified)' : ` (Need ${2 - myVerificationCount} more)`}
               </Text>
               <Text>
                 Verified by: {myVerificationStatus.verified_by.length > 0 
@@ -587,9 +768,9 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         />
       </Card>
 
-      <Card title="Verify Other Users">
+      <Card title={`Verify Other Users (${Object.keys(poll.registrants).length - 1} others online)`}>
         <Alert
-          message="Quick Verification Guide"
+          message="Live User List - Updates Automatically"
           description="1. Verify each user below 2. Have them verify you back 3. Complete PPE with your neighbors"
           type="info"
           showIcon
@@ -607,7 +788,18 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
             }))}
           renderItem={(user) => (
             <List.Item
+              style={recentlyJoinedUsers.has(user.id) ? {
+                backgroundColor: '#f6ffed',
+                border: '1px solid #b7eb8f',
+                borderRadius: '6px',
+                transition: 'all 0.3s ease'
+              } : {}}
               actions={[
+                recentlyJoinedUsers.has(user.id) && (
+                  <Text type="success" style={{ marginRight: 8 }}>
+                    🆕 New!
+                  </Text>
+                ),
                 user.hasVerified ? (
                   <Text type="success">
                     <CheckCircleOutlined /> Verified
@@ -621,7 +813,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
                     Verify User
                   </Button>
                 )
-              ]}
+              ].filter(Boolean)}
             >
               <List.Item.Meta
                 avatar={<UserOutlined />}
@@ -648,14 +840,25 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   );
 };
 
-  return (
+    return (
     <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
       <Card>
         <Title level={2}>{poll.question}</Title>
-      </Card>
-
-      {!hasVoted && (
-        <Card title={<Title level={3}>Cast Your Vote</Title>}>
+        <Text type="secondary">
+          {Object.keys(poll.registrants).length} users registered • 
+          {Object.keys(poll.votes).length} votes cast • 
+          Auto-refresh every 3s • 
+          Last updated: {lastUpdated.toLocaleTimeString()}
+        </Text>
+      </Card>      {!hasVoted && (
+        <Card 
+          title={<Title level={3}>Cast Your Vote</Title>} 
+          data-section="voting"
+          style={canVote ? { 
+            border: '2px solid #52c41a', 
+            boxShadow: '0 4px 12px rgba(82, 196, 26, 0.15)' 
+          } : {}}
+        >
           {!hasRequiredCertifications ? (
             <Alert
               message="Complete PPE Verification"

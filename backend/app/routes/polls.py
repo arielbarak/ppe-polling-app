@@ -85,3 +85,48 @@ async def get_user_verifications(
         "can_vote": poll.can_vote(user_id),
         "verification_count": len(verifications.verified_by)
     }
+
+@router.post("/{poll_id}/ppe-certification")
+async def record_ppe_certification(
+    poll_id: str, 
+    certification_data: Dict[str, Any]
+):
+    """Record a PPE certification between two users"""
+    try:
+        user1_key = certification_data["user1_public_key"]
+        user2_key = certification_data["user2_public_key"]
+        
+        user1_id = get_user_id(user1_key)
+        user2_id = get_user_id(user2_key)
+        
+        poll = poll_service.record_ppe_certification(poll_id, user1_id, user2_id)
+        if not poll:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Poll not found")
+        
+        return {"message": "PPE certification recorded successfully"}
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    except KeyError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Missing required field: {e}")
+
+@router.get("/{poll_id}/ppe-certifications")
+async def get_ppe_certifications(
+    poll_id: str, 
+    public_key_str: str
+):
+    """Get PPE certifications for a specific user"""
+    public_key = json.loads(public_key_str)
+    user_id = get_user_id(public_key)
+    poll = poll_service.get_poll(poll_id)
+    if not poll:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poll not found")
+    
+    if user_id not in poll.registrants:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not registered for this poll")
+    
+    certifications = poll.get_ppe_certifications(user_id)
+    
+    return {
+        "certified_peers": list(certifications),
+        "certification_count": len(certifications)
+    }

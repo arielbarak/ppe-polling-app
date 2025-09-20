@@ -77,5 +77,31 @@ getAllPolls: async () => {
     );
     if (!response.ok) throw new Error('Failed to get verifications');
     return response.json();
+  },
+
+  recordPPECertification: async (pollId, user1PublicKey, user2PublicKey) => {
+    const response = await fetch(`${API_BASE_URL}/polls/${pollId}/ppe-certification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user1_public_key: user1PublicKey,
+        user2_public_key: user2PublicKey
+      })
+    });
+    if (!response.ok) throw new Error('Failed to record PPE certification');
+    return response.json();
+  },
+
+  getPPECertifications: async (pollId, publicKey) => {
+    const encodedKey = encodeURIComponent(JSON.stringify(publicKey));
+    const response = await fetch(
+      `${API_BASE_URL}/polls/${pollId}/ppe-certifications?public_key_str=${encodedKey}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+    if (!response.ok) throw new Error('Failed to get PPE certifications');
+    return response.json();
   }
 };

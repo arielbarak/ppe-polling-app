@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Any
 import json
 import hashlib
+import asyncio
 from ..models.poll import Poll, PollCreate, Vote
 from ..services.connection_manager import manager
 from ..utils.crypto_utils import verify_signature
@@ -71,6 +72,18 @@ class PollService:
 
         # Record the vote
         poll.votes[user_id] = vote
+        
+        # Broadcast vote update to all connected clients
+        asyncio.create_task(manager.broadcast_to_poll(
+            json.dumps({
+                "type": "vote_cast",
+                "voter_id": user_id,
+                "option": vote.option,
+                "poll_id": poll_id
+            }),
+            poll_id
+        ))
+        
         return poll
 
     def get_all_polls(self) -> list[Poll]:
@@ -95,6 +108,49 @@ class PollService:
             
         # Add the verification
         poll.add_verification(verifier_id, verified_id)
+        
+        # Broadcast verification update to all connected clients
+        asyncio.create_task(manager.broadcast_to_poll(
+            json.dumps({
+                "type": "user_verified",
+                "verifier_id": verifier_id,
+                "verified_id": verified_id,
+                "poll_id": poll_id
+            }),
+            poll_id
+        ))
+        
+        return poll
+
+    def record_ppe_certification(self, poll_id: str, user1_id: str, user2_id: str) -> Optional[Poll]:
+        """Record a PPE certification between two users"""
+        poll = self.get_poll(poll_id)
+        if not poll:
+            return None
+            
+        # Verify both users are registered
+        if user1_id not in poll.registrants or user2_id not in poll.registrants:
+            raise ValueError("Both users must be registered for this poll")
+            
+        # Prevent self-certification
+        if user1_id == user2_id:
+            raise ValueError("Users cannot certify themselves")
+            
+        # Add the PPE certification
+        poll.add_ppe_certification(user1_id, user2_id)
+        print(f"PPE certification recorded between {user1_id[:10]}... and {user2_id[:10]}...")
+        
+        # Broadcast PPE certification update to all connected clients
+        asyncio.create_task(manager.broadcast_to_poll(
+            json.dumps({
+                "type": "ppe_certified",
+                "user1_id": user1_id,
+                "user2_id": user2_id,
+                "poll_id": poll_id
+            }),
+            poll_id
+        ))
+        
         return poll
 
 poll_service = PollService()
