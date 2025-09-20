@@ -130,6 +130,12 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   };
 
   const handleVote = async (option) => {
+    // Double-check PPE completion before allowing vote
+    if (!hasRequiredCertifications || !checkPPECompletion()) {
+      message.error('You must complete the PPE process before voting');
+      return;
+    }
+
     try {
       const keyPair = await cryptoService.loadKeys();
       if (!keyPair) throw new Error("Keys not loaded.");
@@ -137,10 +143,10 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
       const signature = await cryptoService.signMessage(keyPair.privateKey, messageToSign);
       const voteData = { publicKey: userPublicKey, option: option, signature: signature };
       await pollApi.submitVote(poll.id, voteData);
-      alert(`Successfully voted for: ${option}`);
+      message.success(`Successfully voted for: ${option}`);
       fetchPoll();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      message.error(`Error: ${err.message}`);
     }
   };
 
@@ -157,52 +163,116 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
     }
   };
 
+  const [canVote, setCanVote] = useState(false);
+  const [hasRequiredCertifications, setHasRequiredCertifications] = useState(false);
+
+  const checkPPECompletion = () => {
+    if (!currentUserId || !poll) return false;
+    
+    const myNeighbors = calculateNeighbors(
+      currentUserId,
+      Object.keys(poll.registrants).filter(id => id !== currentUserId).sort()
+    );
+    
+    return myNeighbors.length > 0 && myNeighbors.every(neighborId => certifiedPeers.has(neighborId));
+  };
+
   const fetchUserData = async () => {
     try {
         const userId = await pollApi.getUserId(userPublicKey);
         const verifications = await pollApi.getUserVerifications(pollId, userPublicKey);
         
+        const ppeCompleted = checkPPECompletion();
+        setHasRequiredCertifications(ppeCompleted);
+        
+        // Only allow voting if both verifications and PPE are complete
+        const canVoteNow = verifications.can_vote && ppeCompleted;
+        setCanVote(canVoteNow);
+        
         if (!verifications.can_vote) {
-            message.error('You need to be verified before voting');
-            navigateToHome();
+            message.warning('You need to be verified before voting');
         }
     } catch (error) {
-        message.error('Failed to verify voting eligibility');
-        navigateToHome();
+        if (!error.message?.includes('User not registered')) {
+            console.error('Failed to check voting eligibility:', error);
+        }
+        setCanVote(false);
+        setHasRequiredCertifications(false);
     }
   };
 
+  // Update eligibility whenever certifiedPeers changes
   useEffect(() => {
-    fetchUserData();
-  }, [pollId, userPublicKey]);
+    const updateEligibility = async () => {
+      if (poll && currentUserId) {
+        const ppeCompleted = checkPPECompletion();
+        setHasRequiredCertifications(ppeCompleted);
+        if (canVote && !ppeCompleted) {
+          setCanVote(false);
+        }
+      }
+    };
+    updateEligibility();
+  }, [certifiedPeers, poll, currentUserId]);
+
+  // Fetch user data when poll or user changes
+  useEffect(() => {
+    if (poll) {
+      fetchUserData();
+    }
+  }, [poll, pollId, userPublicKey]);
 
   if (isLoading) return <Spin size="large" />;
   if (!poll) return <Alert message="Poll not found" type="error" />;
 
   const hasVoted = currentUserId && poll.votes[currentUserId];
 
-  const renderVerificationRequests = () => (
-    <Card title="Verification Requests">
+  const renderRegisteredUsers = () => (
+    <Card title="Registered Users">
         <List
             dataSource={Object.entries(poll.registrants)
-                .filter(([id]) => !poll.verifications[id]?.verified_by.includes(currentUserId))
-                .filter(([id]) => id !== currentUserId)}
-            renderItem={([userId, publicKey]) => (
+                .filter(([id]) => id !== currentUserId) // Don't show self
+                .map(([id]) => ({
+                    id,
+                    hasVerified: poll.verifications[id]?.verified_by.includes(currentUserId),
+                    verificationCount: poll.verifications[id]?.verified_by.length || 0,
+                    canVote: poll.verifications[id]?.verified_by.length >= 2
+                }))}
+            renderItem={(user) => (
                 <List.Item
                     actions={[
-                        <Button
-                            type="primary"
-                            onClick={() => handleVerifyUser(userId)}
-                            icon={<CheckCircleOutlined />}
-                        >
-                            Verify User
-                        </Button>
+                        user.hasVerified ? (
+                            <Text type="success">
+                                <CheckCircleOutlined /> Verified
+                            </Text>
+                        ) : (
+                            <Button
+                                type="primary"
+                                onClick={() => handleVerifyUser(user.id)}
+                                icon={<CheckCircleOutlined />}
+                            >
+                                Verify User
+                            </Button>
+                        )
                     ]}
                 >
                     <List.Item.Meta
                         avatar={<UserOutlined />}
-                        title={`User: ${userId.substring(0, 12)}...`}
-                        description="Requesting verification"
+                        title={`User: ${user.id.substring(0, 12)}...`}
+                        description={
+                            <>
+                                {user.hasVerified ? (
+                                    "You've verified this user"
+                                ) : (
+                                    "Needs your verification"
+                                )}
+                                <br />
+                                <Text type={user.canVote ? "success" : "warning"}>
+                                    {user.verificationCount} verification{user.verificationCount !== 1 ? 's' : ''} 
+                                    {user.canVote ? " (Can vote)" : ` (Needs ${2 - user.verificationCount} more)`}
+                                </Text>
+                            </>
+                        }
                     />
                 </List.Item>
             )}
@@ -223,6 +293,19 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
 
       <Card>
         <Title level={2}>{poll.question}</Title>
+        {!hasVoted && (!canVote || !hasRequiredCertifications) && (
+          <Alert
+            message="Requirements for Voting"
+            description={
+              !canVote
+                ? "You need to be verified by other participants before proceeding."
+                : "You need to complete the PPE process with your neighbors in Step 1 before you can vote."
+            }
+            type="info"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
+        )}
       </Card>
 
       {!hasVoted && (
@@ -256,17 +339,10 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
         </Card>
       )}
 
-      {!hasVoted && renderVerificationRequests()}
+      {currentUserId && renderRegisteredUsers()}
 
-      <Card title={<Title level={3}>Step 2: Cast Your Vote</Title>}>
-        {hasVoted ? (
-          <Alert
-            message="Vote Submitted"
-            description={`You have voted for: ${poll.votes[currentUserId]?.option}`}
-            type="success"
-            showIcon
-          />
-        ) : (
+      {canVote && hasRequiredCertifications && !hasVoted && (
+        <Card title={<Title level={3}>Step 2: Cast Your Vote</Title>}>
           <Space wrap>
             {poll.options.map((option, index) => (
               <Button
@@ -279,8 +355,19 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
               </Button>
             ))}
           </Space>
-        )}
-      </Card>
+        </Card>
+      )}
+
+      {hasVoted && (
+        <Card title={<Title level={3}>Your Vote</Title>}>
+          <Alert
+            message="Vote Submitted"
+            description={`You have voted for: ${poll.votes[currentUserId]?.option}`}
+            type="success"
+            showIcon
+          />
+        </Card>
+      )}
 
       <Card title={<Title level={3}>Live Results</Title>}>
         <List

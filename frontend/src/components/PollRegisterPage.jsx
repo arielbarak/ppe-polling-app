@@ -13,17 +13,30 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const ws = new WebSocket(`ws://localhost:8000/ws/${pollId}/${userPublicKey}`);
-        setSocket(ws);
+        // Use the stable user ID (hash of public key) as the WebSocket client id.
+        // Passing the raw publicKey object into the URL becomes "[object Object]" and causes collisions.
+        const setupSocket = async () => {
+            try {
+                const userId = await pollApi.getUserId(userPublicKey);
+                const wsUrl = `ws://localhost:8000/ws/${pollId}/${encodeURIComponent(userId)}`;
+                const ws = new WebSocket(wsUrl);
+                setSocket(ws);
 
-        ws.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'verification_accepted') {
-                await fetchVerifications();
+                ws.onmessage = async (event) => {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'verification_accepted') {
+                        await fetchVerifications();
+                        await fetchPoll(); // Refresh poll data to get updated verifications
+                    }
+                };
+            } catch (err) {
+                console.error('Failed to establish WebSocket connection:', err);
             }
         };
 
-        return () => ws.close();
+        setupSocket();
+
+        return () => { if (socket) socket.close(); };
     }, [pollId, userPublicKey]);
 
     const fetchVerifications = async () => {
@@ -34,31 +47,60 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
                 message.success('You have been verified and can now vote!');
                 setTimeout(() => navigateToVote(pollId), 1000);
             }
+            // Also fetch poll data to ensure we have the latest registrations and verifications
+            await fetchPoll();
         } catch (error) {
-            message.error('Failed to fetch verifications');
-            console.error('Failed to fetch verifications:', error);
+            // If the error is because we're not registered yet, don't show an error
+            if (!error.message?.includes('User not registered')) {
+                message.error('Failed to fetch verifications');
+                console.error('Failed to fetch verifications:', error);
+            }
+        }
+    };
+
+    const fetchPoll = async () => {
+        try {
+            const pollData = await pollApi.getPoll(pollId);
+            setPoll(pollData);
+        } catch (error) {
+            console.error('Failed to fetch poll:', error);
+            message.error('Failed to fetch poll data');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        const fetchPoll = async () => {
-            try {
-                const pollData = await pollApi.getPoll(pollId);
-                setPoll(pollData);
-            } finally {
-                setIsLoading(false);
-            }
-        };
         fetchPoll();
     }, [pollId]);
+
+    const handleVerifyUser = async (userId) => {
+        try {
+            await pollApi.verifyUser(pollId, userId, userPublicKey);
+            if (socket) {
+                socket.send(JSON.stringify({
+                    type: 'verification_accepted',
+                    target: userId
+                }));
+            }
+            await fetchPoll(); // Refresh the poll data to show updated verifications
+            message.success('User verified successfully');
+        } catch (error) {
+            console.error('Failed to verify user:', error);
+            message.error('Failed to verify user');
+        }
+    };
 
     const handleRegister = async () => {
         setIsRegistering(true);
         try {
             await pollApi.register(pollId, userPublicKey);
             await fetchVerifications();
+            await fetchPoll(); // Refresh poll data to show updated registrations
+            message.success('Successfully registered for the poll');
         } catch (error) {
             console.error('Registration failed:', error);
+            message.error('Failed to register for the poll');
         } finally {
             setIsRegistering(false);
         }
@@ -107,6 +149,59 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote }) {
                     </Button>
                 )}
             </Card>
+
+            {verifications && (
+                <Card title={<Title level={3}>Other Registered Users</Title>}>
+                    <List
+                        dataSource={Object.entries(poll.registrants)
+                            .filter(([_, key]) => JSON.stringify(key) !== JSON.stringify(userPublicKey)) // Don't show self using public key comparison
+                            .map(([id]) => ({
+                                id,
+                                hasVerified: verifications?.has_verified?.includes(id),
+                                verificationCount: poll.verifications[id]?.verified_by.length || 0,
+                                canVote: poll.verifications[id]?.verified_by.length >= 2
+                            }))}
+                        renderItem={(user) => (
+                            <List.Item
+                                actions={[
+                                    user.hasVerified ? (
+                                        <Text type="success">
+                                            <CheckCircleOutlined /> Verified
+                                        </Text>
+                                    ) : (
+                                        <Button
+                                            type="primary"
+                                            onClick={() => handleVerifyUser(user.id)}
+                                            icon={<CheckCircleOutlined />}
+                                        >
+                                            Verify User
+                                        </Button>
+                                    )
+                                ]}
+                            >
+                                <List.Item.Meta
+                                    avatar={<UserOutlined />}
+                                    title={`User: ${user.id.substring(0, 8)}...`}
+                                    description={
+                                        <>
+                                            {user.hasVerified ? (
+                                                "You've verified this user"
+                                            ) : (
+                                                "Needs your verification"
+                                            )}
+                                            <br />
+                                            <Text type={user.canVote ? "success" : "warning"}>
+                                                {user.verificationCount} verification{user.verificationCount !== 1 ? 's' : ''} 
+                                                {user.canVote ? " (Can vote)" : ` (Needs ${2 - user.verificationCount} more)`}
+                                            </Text>
+                                        </>
+                                    }
+                                />
+                            </List.Item>
+                        )}
+                    />
+                </Card>
+            )}
 
             {verifications && !verifications.can_vote && (
                 <Alert
