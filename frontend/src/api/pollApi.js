@@ -103,5 +103,11 @@ getAllPolls: async () => {
     );
     if (!response.ok) throw new Error('Failed to get PPE certifications');
     return response.json();
+  },
+  
+  getVerificationData: async (pollId) => {
+    const response = await fetch(`${API_BASE_URL}/polls/${pollId}/verify`);
+    if (!response.ok) throw new Error('Failed to get verification data');
+    return response.json();
   }
 };

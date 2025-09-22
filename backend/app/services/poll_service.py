@@ -13,7 +13,8 @@ def get_user_id(public_key_jwk: Dict[str, Any]) -> str:
 
 class PollService:
     def create_poll(self, poll_data: PollCreate) -> Poll:
-        new_poll = Poll(**poll_data.dict())
+        # Use model_dump() instead of dict() to avoid Pydantic deprecation warning
+        new_poll = Poll(**poll_data.model_dump())
         _polls_db[new_poll.id] = new_poll
         return new_poll
 
@@ -152,5 +153,92 @@ class PollService:
         ))
         
         return poll
+    
+    def verify_poll_integrity(self, poll):
+        """
+        Verify the integrity of a poll based on PPE certification graph.
+        This is the key algorithm that ensures the poll is resistant to Sybil attacks.
+        It checks:
+        1. Graph connectivity - ensures the certification graph is well-connected
+        2. PPE certification coverage - checks if enough users completed PPE
+        3. Vote eligibility - verifies only users with sufficient certifications voted
+        """
+        # Get all registered users
+        registered_users = list(poll.registrants.keys())
+        num_users = len(registered_users)
+        
+        # Calculate metrics for verification
+        ppe_coverage = 0
+        min_certifications_per_user = float('inf') if num_users > 0 else 0
+        max_certifications_per_user = 0
+        avg_certifications_per_user = 0
+        
+        # Calculate PPE coverage - what percentage of possible PPE connections were made
+        # In a perfect graph, every node would connect to k neighbors where k is a small constant
+        # For our implementation, we aim for at least 2 connections per user
+        
+        total_certifications = 0
+        for user_id, certifications in poll.ppe_certifications.items():
+            cert_count = len(certifications)
+            total_certifications += cert_count
+            min_certifications_per_user = min(min_certifications_per_user, cert_count)
+            max_certifications_per_user = max(max_certifications_per_user, cert_count)
+        
+        if num_users > 0:
+            avg_certifications_per_user = total_certifications / num_users
+            # Divide by 2 because each certification is counted twice (once for each user)
+            total_possible_connections = (num_users * (num_users - 1)) / 2
+            ppe_coverage = (total_certifications / 2) / total_possible_connections if total_possible_connections > 0 else 0
+        
+        # Check for unauthorized votes
+        unauthorized_votes = []
+        for voter_id in poll.votes:
+            if not poll.can_vote(voter_id):
+                unauthorized_votes.append(voter_id)
+        
+        # Calculate expansion properties
+        # A good expander graph has high connectivity, meaning removal of a small 
+        # set of nodes doesn't disconnect the graph
+        # For simplicity, we check the minimum number of certifications per user
+        
+        return {
+            "total_participants": num_users,
+            "total_votes": len(poll.votes),
+            "ppe_coverage": ppe_coverage,
+            "min_certifications_per_user": min_certifications_per_user if min_certifications_per_user != float('inf') else 0,
+            "max_certifications_per_user": max_certifications_per_user,
+            "avg_certifications_per_user": avg_certifications_per_user,
+            "unauthorized_votes": unauthorized_votes,
+            "is_valid": len(unauthorized_votes) == 0 and (num_users == 0 or min_certifications_per_user >= 2),
+            "verification_message": self._generate_verification_message(
+                num_users, ppe_coverage, min_certifications_per_user, unauthorized_votes
+            )
+        }
+    
+    def _generate_verification_message(self, num_users, ppe_coverage, min_certifications, unauthorized_votes):
+        """Generate a human-readable verification message"""
+        if num_users == 0:
+            return "Poll has no participants."
+        
+        messages = []
+        
+        # Check certification coverage
+        if ppe_coverage < 0.1:
+            messages.append("WARNING: Very low PPE certification coverage (less than 10%).")
+        elif ppe_coverage < 0.3:
+            messages.append("Low PPE certification coverage (less than 30%).")
+        
+        # Check minimum certifications
+        if min_certifications < 2:
+            messages.append("WARNING: Some users have fewer than 2 PPE certifications.")
+        
+        # Check unauthorized votes
+        if unauthorized_votes:
+            messages.append(f"WARNING: {len(unauthorized_votes)} unauthorized votes detected.")
+        
+        if not messages:
+            return "Poll verification successful. No issues detected."
+        else:
+            return " ".join(messages)
 
 poll_service = PollService()

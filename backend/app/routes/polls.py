@@ -130,3 +130,72 @@ async def get_ppe_certifications(
         "certified_peers": list(certifications),
         "certification_count": len(certifications)
     }
+
+@router.get("/{poll_id}/verify")
+async def get_poll_verification_data(poll_id: str):
+    """
+    Get full poll data with certification graph for public verification.
+    This endpoint allows anyone to verify the poll's integrity without needing to register.
+    """
+    poll = poll_service.get_poll(poll_id)
+    if not poll:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poll not found")
+    
+    # Create the certification graph for verification
+    certification_graph = {
+        "nodes": [],
+        "edges": []
+    }
+    
+    # Add all registered users as nodes
+    for user_id, public_key in poll.registrants.items():
+        vote = poll.votes.get(user_id)
+        node_data = {
+            "id": user_id,
+            "publicKey": public_key,
+            "voted": vote is not None,
+        }
+        
+        # Handle vote data - votes can be either Vote objects or dicts
+        if vote is not None:
+            if isinstance(vote, dict) and "option" in vote:
+                node_data["vote"] = vote["option"]
+            elif hasattr(vote, "option"):  # Vote object
+                node_data["vote"] = vote.option
+            else:
+                node_data["vote"] = None  # Fallback for unknown vote format
+                
+        certification_graph["nodes"].append(node_data)
+    
+    # Add all PPE certifications as edges
+    for user_id, certified_peers in poll.ppe_certifications.items():
+        for peer_id in certified_peers:
+            # Add edge only once (we don't need both directions since it's bidirectional)
+            if user_id < peer_id:
+                certification_graph["edges"].append({
+                    "source": user_id,
+                    "target": peer_id,
+                    "type": "ppe_certification"
+                })
+    
+    # Add verifications as edges
+    for user_id, verifications in poll.verifications.items():
+        for verifier_id in verifications.verified_by:
+            certification_graph["edges"].append({
+                "source": verifier_id,
+                "target": user_id,
+                "type": "verification"
+            })
+    
+    # Calculate graph metrics for verification
+    verification_data = poll_service.verify_poll_integrity(poll)
+    
+    return {
+        "poll_id": poll.id,
+        "question": poll.question,
+        "options": poll.options,
+        "total_participants": len(poll.registrants),
+        "total_votes": len(poll.votes),
+        "certification_graph": certification_graph,
+        "verification": verification_data
+    }

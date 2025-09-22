@@ -18,3 +18,16 @@ yarn-error.log*
 
 # Application-specific
 backend/app/data/
+
+
+# dev tools and reports
+.pytest_cache/
+coverage.xml
+.coverage
+frontend/coverage/
+generate_coverage_report.bat
+generate_coverage_report.sh
+TEST_COVERAGE_REPORT.md
+coverage_reports/
+backend/run_tests.bat
+backend/run_tests.sh

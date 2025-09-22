@@ -3,4 +3,11 @@ uvicorn[standard]
 python-multipart
 pyjwt
 cryptography
-#js-sha256
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+starlette
+anyio
+websockets
+python-jose

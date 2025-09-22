@@ -52,6 +52,25 @@ def make_jwk_from_public_key(public_key: ec.EllipticCurvePublicKey) -> dict:
 
 
 def test_verify_signature_der_and_raw():
+    """Test digital signature verification with both DER and raw formats.
+    
+    This test validates that the verify_signature function correctly verifies
+    signatures in both DER (Distinguished Encoding Rules) format and raw format.
+    It creates a test key pair, signs a message, and verifies the signature in
+    both formats.
+    
+    The test:
+    1. Generates an EC private/public key pair
+    2. Signs a test message with the private key
+    3. Verifies the signature using the public key in JWK format
+    4. Tests both DER-encoded and raw signature formats
+    
+    Returns:
+        None
+        
+    Raises:
+        AssertionError: If signature verification fails for either format.
+    """
     # Generate a fresh P-256 keypair
     private_key = ec.generate_private_key(ec.SECP256R1())
     public_key = private_key.public_key()
@@ -78,6 +97,24 @@ def test_verify_signature_der_and_raw():
 
 
 def test_verify_signature_invalid_returns_false():
+    """Test that invalid signatures are properly rejected.
+    
+    This test verifies that the verify_signature function correctly returns
+    False when an invalid signature is provided. It tests with a signature
+    that doesn't match the message being verified.
+    
+    The test:
+    1. Generates an EC private/public key pair
+    2. Signs a test message with the private key
+    3. Attempts to verify a different message with the same signature
+    4. Confirms that verification fails (returns False)
+    
+    Returns:
+        None
+        
+    Raises:
+        AssertionError: If invalid signatures are not properly rejected.
+    """
     private_key = ec.generate_private_key(ec.SECP256R1())
     public_key = private_key.public_key()
     jwk = make_jwk_from_public_key(public_key)
@@ -92,3 +129,43 @@ def test_verify_signature_invalid_returns_false():
     tampered_hex = bytes(tampered).hex()
 
     assert verify_signature(jwk, message, tampered_hex) is False
+    
+    # Also test with wrong message
+    assert verify_signature(jwk, "wrong-message", der_sig.hex()) is False
+
+
+def test_verify_signature_exception_handling():
+    """Test that exceptions during signature verification are properly handled.
+    
+    This test verifies that the verify_signature function gracefully handles
+    various error conditions and returns False instead of raising exceptions.
+    It tests several error scenarios:
+    
+    1. Invalid JWK format for the public key
+    2. Non-hexadecimal signature string
+    3. Signature that's too short to be valid
+    
+    For all these cases, the function should return False rather than raising
+    an exception, ensuring robust error handling in the application.
+    
+    Returns:
+        None
+        
+    Raises:
+        AssertionError: If exceptions are not properly handled.
+    """
+    # Invalid public key format
+    invalid_jwk = {"kty": "EC", "crv": "P-256", "x": "invalid-x", "y": "invalid-y"}
+    
+    # This should return False due to exception handling in verify_signature
+    assert verify_signature(invalid_jwk, "message", "00" * 32) is False
+    
+    # Test with invalid hex string
+    valid_private_key = ec.generate_private_key(ec.SECP256R1())
+    valid_jwk = make_jwk_from_public_key(valid_private_key.public_key())
+    
+    # Invalid hex string (not hex characters)
+    assert verify_signature(valid_jwk, "message", "not-a-hex-string") is False
+    
+    # Too short signature
+    assert verify_signature(valid_jwk, "message", "aabb") is False

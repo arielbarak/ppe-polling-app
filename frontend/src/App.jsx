@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Space, Button, Input, Typography, Form, Card, List, message, Tooltip } from 'antd';
-import { PlusOutlined, LoginOutlined, ArrowRightOutlined, CheckCircleOutlined, UserAddOutlined } from '@ant-design/icons';
+import { PlusOutlined, LoginOutlined, ArrowRightOutlined, CheckCircleOutlined, UserAddOutlined, SafetyOutlined } from '@ant-design/icons';
 import { cryptoService } from './services/cryptoService';
 import { pollApi } from './services/pollApi';
 import CreatePoll from './components/CreatePoll';
 import PollRegisterPage from './components/PollRegisterPage';
 import PollVotePage from './components/PollVotePage';
+import PollVerifyPage from './components/PollVerifyPage';
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph } = Typography;
 
-const HomePage = ({ navigateToCreate, navigateToPoll, userPublicKey }) => {
+const HomePage = ({ navigateToCreate, navigateToPoll, navigateToVerify, userPublicKey }) => {
   const [form] = Form.useForm();
   const [availablePolls, setAvailablePolls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingPoll, setCheckingPoll] = useState(null);
+  const [verifyPollId, setVerifyPollId] = useState('');
 
   useEffect(() => {
     const fetchPolls = async () => {
@@ -122,6 +124,15 @@ const HomePage = ({ navigateToCreate, navigateToPoll, userPublicKey }) => {
                     >
                       {isRegistered ? 'Continue' : 'Join'}
                     </Button>
+                  </Tooltip>,
+                  <Tooltip title="Verify poll integrity">
+                    <Button
+                      type="link"
+                      icon={<SafetyOutlined />}
+                      onClick={() => navigateToVerify(poll.id)}
+                    >
+                      Verify
+                    </Button>
                   </Tooltip>
                 ]}
               >
@@ -146,6 +157,28 @@ const HomePage = ({ navigateToCreate, navigateToPoll, userPublicKey }) => {
           style={{ width: '100%' }}
         />
       </Card>
+      
+      <Card>
+        <Title level={2}>Verify a Poll</Title>
+        <Paragraph>Publicly verify the integrity of any poll without needing to register.</Paragraph>
+        <Form onFinish={() => navigateToVerify(verifyPollId)}>
+          <Space direction="horizontal">
+            <Input 
+              placeholder="Enter Poll ID to verify" 
+              value={verifyPollId} 
+              onChange={e => setVerifyPollId(e.target.value)}
+              style={{ width: 300 }}
+            />
+            <Button 
+              type="primary" 
+              icon={<SafetyOutlined />} 
+              onClick={() => navigateToVerify(verifyPollId)}
+            >
+              Verify Poll
+            </Button>
+          </Space>
+        </Form>
+      </Card>
     </Space>
   );
 };
@@ -157,6 +190,7 @@ function App() {
   // --- Navigation Functions ---
   const navigateToHome = () => setView({ page: 'home', pollId: null });
   const navigateToCreate = () => setView({ page: 'create', pollId: null });
+  const navigateToVerify = (pollId) => setView({ page: 'verify', pollId: pollId });
   const navigateToPoll = async (pollId) => {
     if (!publicKey) {
       console.warn('Public key not ready yet');
@@ -207,14 +241,16 @@ function App() {
   const renderView = () => {
     switch (view.page) {
       case 'create':
-        return <CreatePoll navigateToPoll={navigateToPoll} />;
+        return <CreatePoll navigateToPoll={navigateToPoll} navigateToHome={navigateToHome} />;
       case 'register':
         return <PollRegisterPage pollId={view.pollId} userPublicKey={publicKey} navigateToVote={navigateToVote} navigateToHome={navigateToHome} />;
       case 'vote':
         return <PollVotePage pollId={view.pollId} userPublicKey={publicKey} navigateToHome={navigateToHome} />;
+      case 'verify':
+        return <PollVerifyPage pollId={view.pollId} navigateToHome={navigateToHome} />;
       case 'home':
       default:
-        return <HomePage navigateToCreate={navigateToCreate} navigateToPoll={navigateToPoll} userPublicKey={publicKey} />;
+        return <HomePage navigateToCreate={navigateToCreate} navigateToPoll={navigateToPoll} navigateToVerify={navigateToVerify} userPublicKey={publicKey} />;
     }
   };
 
