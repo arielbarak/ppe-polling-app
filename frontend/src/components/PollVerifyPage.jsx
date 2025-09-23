@@ -241,13 +241,15 @@ function PollVerifyPage({ pollId, navigateToHome }) {
         />
       )}
 
-      <Button 
-        icon={<HomeOutlined />}
-        onClick={navigateToHome}
-        style={{ alignSelf: 'center' }}
-      >
-        Back to Home
-      </Button>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+        <Button 
+          icon={<HomeOutlined />}
+          onClick={navigateToHome}
+          size="large"
+        >
+          Back to Home
+        </Button>
+      </div>
     </Space>
   );
 }

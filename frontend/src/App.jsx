@@ -22,10 +22,33 @@ const HomePage = ({ navigateToCreate, navigateToPoll, navigateToVerify, userPubl
   useEffect(() => {
     const fetchPolls = async () => {
       try {
-        const polls = await pollApi.getAllPolls();
-        setAvailablePolls(polls);
+        // Try to get the list of polls from backend
+        try {
+          const polls = await pollApi.getAllPolls();
+          setAvailablePolls(polls);
+          
+          // Cache each poll individually
+          polls.forEach(poll => {
+            localStorage.setItem(`poll_${poll.id}`, JSON.stringify(poll));
+          });
+          
+          // Also cache the list of polls
+          localStorage.setItem('all_polls', JSON.stringify(polls));
+          console.log('Polls fetched from server and cached');
+        } catch (error) {
+          // If backend fetch fails, try to use cached data
+          const cachedPolls = localStorage.getItem('all_polls');
+          if (cachedPolls) {
+            console.log('Using cached polls list');
+            setAvailablePolls(JSON.parse(cachedPolls));
+            message.warning('Using cached poll data. Some information may be outdated.');
+          } else {
+            throw error;
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch polls:', error);
+        message.error('Failed to fetch poll data');
       } finally {
         setLoading(false);
       }
@@ -200,7 +223,24 @@ function App() {
     try {
       // Check if user is already registered in this poll
       console.log('Checking registration status for poll:', pollId);
-      const poll = await pollApi.getPoll(pollId);
+      
+      // Try to get poll from cache first
+      let poll;
+      try {
+        poll = await pollApi.getPoll(pollId);
+        // Cache the poll data
+        localStorage.setItem(`poll_${pollId}`, JSON.stringify(poll));
+      } catch (error) {
+        // If backend fetch fails, try to use cached data
+        const cachedPollData = localStorage.getItem(`poll_${pollId}`);
+        if (cachedPollData) {
+          console.log('Using cached poll data for registration check');
+          poll = JSON.parse(cachedPollData);
+          message.warning('Using cached poll data. Some information may be outdated.');
+        } else {
+          throw error;
+        }
+      }
       
       // Find if user's public key is already registered
       const isRegistered = Object.values(poll.registrants || {}).some(

@@ -75,7 +75,28 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote, navigateToHom
 
     const fetchPoll = async () => {
         try {
-            const pollData = await pollApi.getPoll(pollId);
+            // Try to get poll from local storage first
+            const cachedPollData = localStorage.getItem(`poll_${pollId}`);
+            let pollData;
+            
+            try {
+                // Try to fetch from backend
+                pollData = await pollApi.getPoll(pollId);
+                // Cache the poll data
+                localStorage.setItem(`poll_${pollId}`, JSON.stringify(pollData));
+                console.log('Poll data fetched from server and cached in PollRegisterPage');
+            } catch (error) {
+                // If backend fetch fails and we have cached data, use it
+                if (cachedPollData) {
+                    console.log('Using cached poll data in PollRegisterPage');
+                    pollData = JSON.parse(cachedPollData);
+                    message.warning('Using cached poll data. Some information may be outdated.');
+                } else {
+                    // No cached data and backend failed
+                    throw error;
+                }
+            }
+            
             setPoll(pollData);
         } catch (error) {
             console.error('Failed to fetch poll:', error);

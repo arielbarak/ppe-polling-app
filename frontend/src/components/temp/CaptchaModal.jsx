@@ -24,6 +24,7 @@ function CaptchaModal({ peerId, challengeText, onSolve, onClose }) {
       <Space direction="vertical" style={{ width: '100%' }}>
         <Title level={4}>Peer Certification Challenge</Title>
         <Text>Solve the challenge from peer: <strong>{peerId ? peerId.substring(0, 8) + '...' : 'Unknown'}</strong></Text>
+        
         <div className="custom-captcha-container">
           <div className="captcha-text">{challengeText}</div>
         </div>
