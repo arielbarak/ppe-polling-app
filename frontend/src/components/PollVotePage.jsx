@@ -20,6 +20,7 @@ const generateCaptchaText = (length = 6) => {
 };
 
 function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
+  const [modal, contextHolder] = Modal.useModal();
   const [poll, setPoll] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const socketRef = useRef(null);
@@ -151,15 +152,15 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
   useEffect(() => {
     fetchPoll();
     
-    // Set up polling for updates
-    const pollInterval = setInterval(() => {
-      fetchPoll();
-    }, 5000); // Poll every 5 seconds
+    // // Set up polling for updates
+    // const pollInterval = setInterval(() => {
+    //   fetchPoll();
+    // }, 5000); // Poll every 5 seconds
     
     // Cleanup interval on unmount
-    return () => {
-      clearInterval(pollInterval);
-    };
+    // return () => {
+    //   clearInterval(pollInterval);
+    // };
   }, [pollId]);
 
   // Initial PPE certifications load - subsequent loads happen via polling
@@ -250,11 +251,15 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
             return;
           }
 
-          // Generate our challenge first
           const myChallenge = generateCaptchaText();
           console.log('Received PPE request, showing modal...');
 
-          Modal.confirm({
+          modal.confirm({
+            zIndex: 1500,
+            width: 500,
+            maskClosable: false,
+            centered: true,
+            destroyOnClose: true,
             title: 'PPE Certification Request',
             content: (
               <div>
@@ -304,8 +309,15 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
                 type: 'reject_ppe',
                 target: msg.from
               }));
-            }
+              modal.destroy();
+            },
+            autoFocusButton: 'cancel'
           });
+          
+          // Force update modal position after a short delay
+          setTimeout(() => {
+            modal.update({});
+          }, 100);
         }
 
         if (msg.type === 'accept_ppe') {
@@ -932,6 +944,7 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
+      {contextHolder}
       <Card>
         <Title level={2}>{poll.question}</Title>
         <Text type="secondary">
