@@ -1,72 +1,72 @@
-# Public Verification of Private Effort (PPE) Polling System
-This project is a full-stack implementation of the "Public Verification of Private Effort" (PPE) polling protocol, based on the 2014 paper by Alberini, Moran, and Rosen. It provides a secure and private online polling system that is resistant to Sybil attacks and manipulation by a dishonest pollster.
+# PPE Polling App
 
-## Overview
-The system uses an effort-based mechanism ("one unit of effort, one vote") instead of traditional identity verification. Participants certify each other's effort through a peer-to-peer, symmetric CAPTCHA exchange. The collection of these certifications forms a publicly verifiable graph, ensuring the integrity of the poll's final results.
+A secure polling application using Proof of Private Effort (PPE) for Sybil resistance.
 
-## Technology Stack
-Backend: Python with FastAPI
+## Prerequisites
 
-Frontend: React (built with Vite)
+- Docker
+- Docker Compose
 
-Real-time Communication: WebSockets
+## Quick Start with Docker
 
-Cryptography:
-
-Client-Side: Web Crypto API (SubtleCrypto) for key generation and signing. Private keys never leave the browser.
-
-Server-Side: Python cryptography and pyjwt libraries for signature verification.
-
-## How to Run the Project
-This project is designed to be run locally for development and testing.
-
-### Prerequisites
-Node.js and npm: Required for the frontend. Download from nodejs.org.
-
-Python 3.9+ and pip: Required for the backend.
-
-### Setup and Running
-Clone the repository:
-
-git clone git@github.com:arielbarak/ppe-polling-app.git
+1. Clone the repository:
+```bash
+git clone <repository-url>
 cd ppe-polling-app
-
-Set up the Backend:
-
-Navigate to the backend directory:
-
-cd backend
-
-#### Create and activate a virtual environment:
-
-```bash
-# On Windows
-python -m venv venv
-.\venv\Scripts\activate
-
-# On macOS/Linux
-python -m venv venv
-source venv/bin/activate
 ```
 
-#### Install the required Python packages:
-
+2. Start the application:
 ```bash
-pip install -r requirements.txt
+docker-compose up --build
 ```
 
-#### Backend Dependencies
+This will:
+- Build and start the frontend (available at http://localhost:5173)
+- Build and start the backend API (available at http://localhost:8000)
 
-The backend requires the following key packages (included in requirements.txt):
-- FastAPI: Modern web framework for building APIs
-- Uvicorn: ASGI server for running FastAPI applications
-- WebSockets: For real-time communication
-- PyJWT: For handling JWT tokens and cryptographic operations
-- Cryptography: For additional cryptographic functions
-
-### Run the backend server:
-
+3. Stop the application:
 ```bash
+docker-compose down
+```
+
+## Development
+
+### Frontend Development
+The frontend container runs in development mode with hot-reload enabled.
+Any changes to the frontend code will automatically reflect in the browser.
+
+### Backend Development
+The backend also supports hot-reload. Changes to Python files will automatically
+restart the server.
+
+## Container Details
+
+- Frontend: Node.js 22 with Vite and React
+- Backend: Python 3.11 with FastAPI
+- Ports:
+  - Frontend: 5173
+  - Backend: 8000
+
+## Troubleshooting
+
+If you encounter any issues:
+
+1. Clean Docker build cache:
+```bash
+docker-compose build --no-cache
+```
+
+2. Remove volumes and rebuild:
+```bash
+docker-compose down -v
+docker-compose up --build
+```
+
+3. Check container logs:
+```bash
+docker-compose logs frontend  # For frontend logs
+docker-compose logs backend   # For backend logs
+```
 # Make sure you're in the backend directory with the virtual environment activated
 uvicorn app.main:app --reload --app-dir .
 ```
