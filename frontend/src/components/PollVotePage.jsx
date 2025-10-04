@@ -313,11 +313,6 @@ function PollVotePage({ pollId, userPublicKey, navigateToHome }) {
             },
             autoFocusButton: 'cancel'
           });
-          
-          // Force update modal position after a short delay
-          setTimeout(() => {
-            modal.update({});
-          }, 100);
         }
 
         if (msg.type === 'accept_ppe') {
