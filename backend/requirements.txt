@@ -11,3 +11,4 @@ starlette
 anyio
 websockets
 python-jose
+networkx

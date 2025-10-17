@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import the routers
-from .routes import polls, ws, health
+from .routes import polls, ws, health, graph
 
 app = FastAPI(
     title="PPE Polling System API",
@@ -30,4 +30,4 @@ async def health_check():
 app.include_router(polls.router)
 app.include_router(health.router, prefix="/api")
 app.include_router(ws.router)
-app.include_router(ws.router)
+app.include_router(graph.router)
