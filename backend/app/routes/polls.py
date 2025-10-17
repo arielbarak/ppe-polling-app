@@ -1,11 +1,20 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import Dict, Any, List
 import json
+from pydantic import BaseModel
 
 from ..models.poll import Poll, PollCreate, Vote
 from ..services.poll_service import poll_service, get_user_id
+from ..services.registration_service import registration_service
 
 router = APIRouter(prefix="/polls", tags=["Polls"])
+
+
+class RegisterRequest(BaseModel):
+    """Request model for poll registration with challenge validation."""
+    public_key: Dict[str, Any]
+    challenge_id: str
+    challenge_solution: str
 
 @router.post("/", response_model=Poll, status_code=status.HTTP_201_CREATED)
 async def create_poll(poll_data: PollCreate):
@@ -21,9 +30,27 @@ async def get_poll(poll_id: str):
     return poll
 
 @router.post("/{poll_id}/register", response_model=Poll)
-async def register_for_poll(poll_id: str, public_key: Dict[str, Any]):
-    """Register a user for a poll using their public key"""
-    poll = await poll_service.add_registrant(poll_id, public_key)
+async def register_for_poll(poll_id: str, request: RegisterRequest):
+    """
+    Register a user for a poll using their public key.
+    
+    Requires solving a registration challenge (initial PPE) before registration
+    is accepted.
+    """
+    # Validate the challenge first
+    is_valid = registration_service.validate_challenge(
+        challenge_id=request.challenge_id,
+        solution=request.challenge_solution
+    )
+    
+    if not is_valid:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Invalid or expired challenge solution. Please request a new challenge."
+        )
+    
+    # Challenge validated, proceed with registration
+    poll = await poll_service.add_registrant(poll_id, request.public_key)
     if not poll:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Poll not found")
     return poll

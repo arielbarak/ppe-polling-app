@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, Typography, Button, Space, Spin, Alert, List, message } from 'antd';
 import { UserOutlined, CheckCircleOutlined, LoadingOutlined, HomeOutlined } from '@ant-design/icons';
 import { pollApi } from '../services/pollApi';
+import RegistrationCaptcha from './RegistrationCaptcha';
+import { registerWithChallenge } from '../services/registrationApi';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -11,6 +13,10 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote, navigateToHom
     const [isRegistering, setIsRegistering] = useState(false);
     const [verifications, setVerifications] = useState(null);
     const [socket, setSocket] = useState(null);
+    
+    // CAPTCHA state
+    const [showCaptcha, setShowCaptcha] = useState(false);
+    const [captchaData, setCaptchaData] = useState(null);
 
     useEffect(() => {
         // Use the stable user ID (hash of public key) as the WebSocket client id.
@@ -156,15 +162,34 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote, navigateToHom
     };
 
     const handleRegister = async () => {
-        setIsRegistering(true);
+        // Show CAPTCHA first
+        setShowCaptcha(true);
+    };
+
+    // NEW function for handling CAPTCHA solution:
+    const handleCaptchaSolved = async (challengeData) => {
         try {
-            await pollApi.register(pollId, userPublicKey);
+            setIsRegistering(true);
+            
+            // Store challenge data
+            setCaptchaData(challengeData);
+            
+            // Register with challenge solution
+            await registerWithChallenge(
+                pollId,
+                userPublicKey,
+                challengeData.challenge_id,
+                challengeData.solution
+            );
+            
             await fetchVerifications();
             await fetchPoll(); // Refresh poll data to show updated registrations
             message.success('Successfully registered for the poll');
+            setShowCaptcha(false);
         } catch (error) {
             console.error('Registration failed:', error);
-            message.error('Failed to register for the poll');
+            message.error(`Registration failed: ${error.message}`);
+            setShowCaptcha(false);
         } finally {
             setIsRegistering(false);
         }
@@ -203,6 +228,12 @@ function PollRegisterPage({ pollId, userPublicKey, navigateToVote, navigateToHom
                             )}
                         />
                     </>
+                ) : showCaptcha ? (
+                    <RegistrationCaptcha
+                        pollId={pollId}
+                        onSolved={handleCaptchaSolved}
+                        onCancel={() => setShowCaptcha(false)}
+                    />
                 ) : (
                     <Button
                         type="primary"
