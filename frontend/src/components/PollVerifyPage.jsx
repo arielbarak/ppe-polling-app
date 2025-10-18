@@ -4,6 +4,7 @@ import { HomeOutlined, SearchOutlined, CheckCircleOutlined, WarningOutlined } fr
 import ForceGraph2D from 'react-force-graph-2d';
 import { pollApi } from '../api/pollApi';
 import ProofGraphViewer from './ProofGraphViewer';
+import AdvancedVerificationPanel from './AdvancedVerificationPanel';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -207,6 +208,8 @@ function PollVerifyPage({ pollId, navigateToHome }) {
           {renderPollResults()}
           
           <ProofGraphViewer pollId={poll.id} />
+          
+          <AdvancedVerificationPanel pollId={poll.id} />
           
           <Card title="Certification Graph" style={{ marginBottom: 16 }}>
             <Paragraph>

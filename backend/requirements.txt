@@ -12,3 +12,5 @@ anyio
 websockets
 python-jose
 networkx
+numpy
+scipy
