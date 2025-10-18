@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import the routers
 from .routes import polls, ws, health, graph, registration, ppe, proof_graph, verification, ppe_config
-from .api import expansion_endpoints, ppe_endpoints
+from .api import expansion_endpoints, ppe_endpoints, parameter_endpoints
 
 app = FastAPI(
     title="PPE Polling System API",
@@ -39,3 +39,4 @@ app.include_router(proof_graph.router)
 app.include_router(verification.router)
 app.include_router(expansion_endpoints.router)
 app.include_router(ppe_endpoints.router)  # Enhanced PPE endpoints
+app.include_router(parameter_endpoints.router)  # Parameter validation and configuration

@@ -1,4 +1,4 @@
-# PPE Polling System 🗳️
+# PPE Polling System
 
 A Sybil-resistant polling system using Proof of Private Effort (PPE). Based on the research paper by Canetti et al.
 
@@ -56,14 +56,14 @@ The system prevents Sybil attacks by requiring mutual effort between users. Fake
 
 ## Features
 
-- ✅ One-sided PPE for registration
-- ✅ Symmetric CAPTCHA for bidirectional PPE
-- ✅ Ideal graph for neighbor assignment
-- ✅ Cryptographic proof graphs
-- ✅ Advanced Sybil detection
-- ✅ Modular PPE architecture
-- ✅ Real-time WebSocket communication
-- ✅ Complete verification algorithms
+- One-sided PPE for registration
+- Symmetric CAPTCHA for bidirectional PPE
+- Ideal graph for neighbor assignment
+- Cryptographic proof graphs
+- Advanced Sybil detection
+- Modular PPE architecture
+- Real-time WebSocket communication
+- Complete verification algorithms
 
 ## Testing
 

@@ -119,7 +119,7 @@ class StateMachine:
             if cert_state.has_voted:
                 return UserState.VOTED, "Already voted"
             
-            return UserState.CAN_VOTE, None  # ✅ CAN VOTE!
+            return UserState.CAN_VOTE, None  # CAN VOTE!
         
         # Post-voting phases
         if poll.phase in [PollPhase.TALLYING, PollPhase.VERIFICATION]:

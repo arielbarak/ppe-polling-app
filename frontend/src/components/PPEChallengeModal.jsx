@@ -42,9 +42,9 @@ function PPEChallengeModal({
 
   const getStatusIcon = () => {
     if (status === 'error') {
-      return '❌';
+      return 'X';
     } else if (status === 'success') {
-      return '✅';
+      return 'OK';
     } else if (status === 'waiting') {
       return <Spin size="small" />;
     }
@@ -135,7 +135,7 @@ function PPEChallengeModal({
               <>
                 <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a' }} />
                 <p style={{ marginTop: '16px', fontSize: '16px' }}>
-                  PPE Completed Successfully! 🎉
+                  PPE Completed Successfully!
                 </p>
               </>
             )}

@@ -52,18 +52,18 @@ async def verify_poll(base_url: str, poll_id: str):
         if response.status_code == 200:
             verification = response.json()
             
-            print(f"Verification Status: {'✅ VALID' if verification['is_valid'] else '❌ INVALID'}")
+            print(f"Verification Status: {'VALID' if verification['is_valid'] else 'INVALID'}")
             print(f"\nSummary: {verification['summary']}")
             
             if verification.get('errors'):
                 print(f"\nErrors Found:")
                 for error in verification['errors']:
-                    print(f"  ❌ {error}")
+                    print(f"  ERROR: {error}")
             
             if verification.get('warnings'):
                 print(f"\nWarnings:")
                 for warning in verification['warnings']:
-                    print(f"  ⚠️  {warning}")
+                    print(f"  WARNING: {warning}")
             
             if verification.get('analysis', {}).get('suspicious_clusters'):
                 clusters = verification['analysis']['suspicious_clusters']

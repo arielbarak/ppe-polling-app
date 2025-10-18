@@ -135,10 +135,10 @@ def test_full_ppe_protocol_simulation():
     print(f"4. All verifications passed: {all_valid}")
     
     if all_valid:
-        print("✅ PPE Protocol completed successfully!")
-        print("🎉 Users can now exchange signatures and record certification")
+        print("PPE Protocol completed successfully!")
+        print("Users can now exchange signatures and record certification")
     else:
-        print("❌ PPE Protocol failed verification")
+        print("PPE Protocol failed verification")
 
 if __name__ == "__main__":
     test_ppe_utils()

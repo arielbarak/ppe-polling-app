@@ -67,7 +67,7 @@ frontend/
         └── ppeService.js                 # Enhanced API client
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. **Backend Setup**
 
@@ -118,7 +118,7 @@ def create_poll(poll_data, db: Session):
     return poll
 ```
 
-## 🔧 API Endpoints
+## API Endpoints
 
 ### Enhanced PPE Endpoints (`/api/ppe/`)
 
@@ -163,7 +163,7 @@ const result = await fetch(`/api/ppe/submit/${executionId}`, {
 });
 ```
 
-## 📝 Configuration
+## Configuration
 
 ### Poll PPE Configuration
 
@@ -223,7 +223,7 @@ quick_poll_config = {
 }
 ```
 
-## 🧪 Testing
+## Testing
 
 Run the comprehensive test suite:
 
@@ -243,14 +243,14 @@ pytest tests/test_ppe_types.py --cov=app.services.ppe
 ### Test Coverage
 
 The test suite covers:
-- ✅ All PPE type implementations
-- ✅ Security parameter validation  
-- ✅ Challenge generation and verification
-- ✅ Social network distance calculation
-- ✅ Error handling and edge cases
-- ✅ MAC binding and replay attack prevention
+- All PPE type implementations
+- Security parameter validation  
+- Challenge generation and verification
+- Social network distance calculation
+- Error handling and edge cases
+- MAC binding and replay attack prevention
 
-## 🔒 Security Properties
+## Security Properties
 
 ### Definition 2.2 Implementation
 
@@ -275,7 +275,7 @@ if not valid:
     print(f"Security issue: {reason}")
 ```
 
-## 📊 Performance & Effort Estimation
+## Performance & Effort Estimation
 
 ### Effort Comparison
 
@@ -398,7 +398,7 @@ export PPE_DEBUG=1
 python setup_ppe_enhancement.py test
 ```
 
-## 📈 Monitoring & Analytics
+## Monitoring & Analytics
 
 ### PPE Execution Tracking
 
@@ -431,7 +431,7 @@ for exec in executions:
     print(f"PPE {exec.id}: {exec.ppe_type} {exec.status} in {exec.duration_seconds}s")
 ```
 
-## 🎯 Future Enhancements
+## Future Enhancements
 
 ### Planned Features
 

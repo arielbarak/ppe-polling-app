@@ -20,10 +20,10 @@ def debug_voting_flow(user_id: str, poll_id: str):
     print("VOTING FLOW DEBUG REPORT")
     print("=" * 60)
     
-    # 1. Check poll exists and phase
+    # Check poll exists and phase
     poll = db.query(Poll).filter_by(id=poll_id).first()
     if not poll:
-        print("❌ PROBLEM: Poll not found")
+        print("PROBLEM: Poll not found")
         db.close()
         return
     
@@ -33,30 +33,30 @@ def debug_voting_flow(user_id: str, poll_id: str):
     print(f"   Expected degree: {getattr(poll, 'expected_degree', 'Not set')}")
     
     if poll.phase != PollPhase.VOTING:
-        print(f"   ⚠️  WARNING: Poll is in {poll.phase}, not VOTING")
+        print(f"   WARNING: Poll is in {poll.phase}, not VOTING")
     else:
-        print("   ✅ Poll is in VOTING phase")
+        print("   Poll is in VOTING phase")
     
-    # 2. Check user exists and is registered
+    # Check user exists and is registered
     user = db.query(User).filter_by(id=user_id, poll_id=poll_id).first()
     if not user:
-        print("\n❌ PROBLEM: User not registered for this poll")
+        print("\nPROBLEM: User not registered for this poll")
         db.close()
         return
     
     print(f"\n2. USER STATUS")
     print(f"   User ID: {user.id}")
     print(f"   Registration order: {getattr(user, 'registration_order', 'Not set')}")
-    print("   ✅ User is registered")
+    print("   User is registered")
     
-    # 3. Check certification state
+    # Check certification state
     cert_state = db.query(CertificationState).filter_by(
         user_id=user_id,
         poll_id=poll_id
     ).first()
     
     if not cert_state:
-        print("\n❌ PROBLEM: No certification state found")
+        print("\nPROBLEM: No certification state found")
         print("   This means PPE assignments were never created")
         db.close()
         return
@@ -72,20 +72,20 @@ def debug_voting_flow(user_id: str, poll_id: str):
     
     # Check certification logic
     if cert_state.completed_ppes < cert_state.required_ppes:
-        print(f"   ⚠️  WARNING: Not enough PPEs completed")
+        print(f"   WARNING: Not enough PPEs completed")
         print(f"      Need {cert_state.required_ppes - cert_state.completed_ppes} more")
     elif not cert_state.is_certified:
-        print("   ❌ PROBLEM: Enough PPEs completed but is_certified=False")
+        print("   PROBLEM: Enough PPEs completed but is_certified=False")
         print("      This is a bug in update_certification_status()")
     else:
-        print("   ✅ User is certified")
+        print("   User is certified")
     
     if cert_state.failed_ppes > cert_state.max_allowed_failures:
-        print(f"   ❌ PROBLEM: Too many failures")
+        print(f"   PROBLEM: Too many failures")
         print(f"      Failed {cert_state.failed_ppes}, max {cert_state.max_allowed_failures}")
         print(f"      User is excluded: {cert_state.is_excluded}")
     
-    # 4. Check state machine logic
+    # Check state machine logic
     print(f"\n4. STATE MACHINE CHECK")
     
     user_state, reason = sm.get_user_state(user_id, poll_id)
@@ -98,17 +98,17 @@ def debug_voting_flow(user_id: str, poll_id: str):
     if vote_reason:
         print(f"   Reason: {vote_reason}")
     
-    # 5. Diagnosis
+    # Diagnosis
     print(f"\n5. DIAGNOSIS")
     
     if can_vote:
-        print("   ✅ USER CAN VOTE!")
+        print("   USER CAN VOTE!")
         print("   If voting still fails, check:")
         print("      - Frontend authorization header")
         print("      - Vote endpoint /api/polls/{poll_id}/vote")
         print("      - Check browser console for errors")
     else:
-        print("   ❌ USER CANNOT VOTE")
+        print("   USER CANNOT VOTE")
         print(f"   Reason: {vote_reason}")
         print("\n   CHECKLIST:")
         
@@ -122,7 +122,7 @@ def debug_voting_flow(user_id: str, poll_id: str):
         ]
         
         for check, description in checks:
-            status = "✅" if check else "❌"
+            status = "OK" if check else "ERROR"
             print(f"      {status} {description}")
     
     print("\n" + "=" * 60)
@@ -135,7 +135,7 @@ def quick_poll_status(poll_id: str):
     
     poll = db.query(Poll).filter_by(id=poll_id).first()
     if not poll:
-        print(f"❌ Poll {poll_id} not found")
+        print(f"Poll {poll_id} not found")
         db.close()
         return
     
@@ -146,7 +146,7 @@ def quick_poll_status(poll_id: str):
     excluded = sum(1 for cs in cert_states if cs.is_excluded)
     voted = sum(1 for cs in cert_states if cs.has_voted)
     
-    print(f"\n📊 POLL OVERVIEW: {poll_id}")
+    print(f"\nPOLL OVERVIEW: {poll_id}")
     print(f"   Phase: {poll.phase}")
     print(f"   Total users: {users}")
     print(f"   Certification states: {len(cert_states)}")
@@ -155,7 +155,7 @@ def quick_poll_status(poll_id: str):
     print(f"   Users who voted: {voted}")
     
     if poll.phase == PollPhase.VOTING and certified > 0:
-        print(f"   🎯 {certified} users should be able to vote")
+        print(f"   TARGET: {certified} users should be able to vote")
     
     db.close()
 
@@ -171,7 +171,7 @@ def list_all_polls():
         db.close()
         return
     
-    print("\n📋 ALL POLLS:")
+    print("\nALL POLLS:")
     for poll in polls:
         user_count = db.query(User).filter_by(poll_id=poll.id).count()
         print(f"   {poll.id} - {poll.phase} - {user_count} users")
@@ -198,7 +198,7 @@ def fix_certification_states(poll_id: str):
     
     if fixed_count > 0:
         db.commit()
-        print(f"✅ Fixed {fixed_count} certification states")
+        print(f"Fixed {fixed_count} certification states")
     else:
         print("No certification states needed fixing")
     

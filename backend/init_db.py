@@ -13,14 +13,14 @@ def create_all_tables():
     """Create all database tables."""
     print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
-    print("✅ Tables created successfully!")
+    print("Tables created successfully!")
 
 
 def drop_all_tables():
     """Drop all database tables (for development)."""
     print("Dropping all tables...")
     Base.metadata.drop_all(bind=engine)
-    print("✅ Tables dropped!")
+    print("Tables dropped!")
 
 
 if __name__ == "__main__":

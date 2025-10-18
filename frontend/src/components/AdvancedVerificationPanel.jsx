@@ -84,7 +84,7 @@ function AdvancedVerificationPanel({ pollId }) {
         <div style={{ textAlign: 'center' }}>
           {getStatusIcon()}
           <Title level={3} style={{ marginTop: '16px' }}>
-            {verification.is_valid ? 'Poll Verified ✅' : 'Verification Failed ❌'}
+            {verification.is_valid ? 'Poll Verified' : 'Verification Failed'}
           </Title>
           <Paragraph type="secondary">{verification.summary}</Paragraph>
         </div>
@@ -159,7 +159,7 @@ function AdvancedVerificationPanel({ pollId }) {
             <Panel header="Graph Connectivity & Structure" key="connectivity">
               <Descriptions bordered size="small" column={2}>
                 <Descriptions.Item label="Connected">
-                  {verification.analysis.connectivity.is_connected ? '✅ Yes' : '❌ No'}
+                  {verification.analysis.connectivity.is_connected ? 'Yes' : 'No'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Components">
                   {verification.analysis.connectivity.num_components}
@@ -242,7 +242,7 @@ function AdvancedVerificationPanel({ pollId }) {
 
           {/* Sybil Detection */}
           {verification.analysis.suspicious_clusters && verification.analysis.suspicious_clusters.length > 0 && (
-            <Panel header="⚠️ Suspicious Clusters Detected" key="sybil">
+            <Panel header="Suspicious Clusters Detected" key="sybil">
               <Alert
                 message="Low-Conductance Clusters Found"
                 description="These clusters have low connectivity to the rest of the graph, which may indicate Sybil attacks."

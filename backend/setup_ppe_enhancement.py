@@ -20,50 +20,50 @@ from app.models.ppe_types import PPEConfig
 
 def setup_ppe_enhancement():
     """Main setup function."""
-    print("🚀 Setting up PPE Protocol Enhancement...")
+    print("Setting up PPE Protocol Enhancement...")
     
     db = SessionLocal()
     try:
-        # 1. Create PPE configs for existing polls
-        print("\n📊 Step 1: Migrating existing polls...")
+        # Create PPE configs for existing polls
+        print("\nStep 1: Migrating existing polls...")
         created_count = migrate_existing_polls_to_ppe_config(db)
-        print(f"✅ Created PPE configurations for {created_count} existing polls")
+        print(f"Created PPE configurations for {created_count} existing polls")
         
-        # 2. Validate all PPE configs
-        print("\n🔍 Step 2: Validating PPE configurations...")
+        # Validate all PPE configs
+        print("\nStep 2: Validating PPE configurations...")
         configs = db.query(PPEConfig).all()
         total_issues = 0
         
         for config in configs:
             issues = validate_ppe_config(config)
             if issues:
-                print(f"⚠️  Poll {config.poll_id}:")
+                print(f"Poll {config.poll_id}:")
                 for issue in issues:
                     print(f"   - {issue}")
                 total_issues += len(issues)
         
         if total_issues == 0:
-            print("✅ All PPE configurations are valid!")
+            print("All PPE configurations are valid!")
         else:
-            print(f"⚠️  Found {total_issues} configuration issues to review")
+            print(f"Found {total_issues} configuration issues to review")
         
-        # 3. Display summary
-        print(f"\n📈 Step 3: Setup Summary")
+        # Display summary
+        print(f"\nStep 3: Setup Summary")
         print(f"   - Total polls: {len(configs)}")
         print(f"   - PPE configs created: {created_count}")
         print(f"   - Configuration issues: {total_issues}")
         
-        # 4. Display available PPE types
-        print(f"\n🔧 Available PPE Types:")
+        # Display available PPE types
+        print(f"\nAvailable PPE Types:")
         print(f"   - Symmetric CAPTCHA: Both users solve CAPTCHAs")
         print(f"   - Proof of Storage: Verify access to cloud storage")  
         print(f"   - Computational: Proof-of-work puzzles")
         print(f"   - Social Distance: Reduced effort for social connections")
         
-        print(f"\n✅ PPE Enhancement setup complete!")
+        print(f"\nPPE Enhancement setup complete!")
         
     except Exception as e:
-        print(f"❌ Setup failed: {e}")
+        print(f"Setup failed: {e}")
         raise
     finally:
         db.close()
@@ -71,7 +71,7 @@ def setup_ppe_enhancement():
 
 def test_ppe_types():
     """Test PPE type implementations."""
-    print("🧪 Testing PPE implementations...")
+    print("Testing PPE implementations...")
     
     from app.services.ppe.symmetric_captcha import SymmetricCaptchaPPE
     from app.services.ppe.proof_of_storage import ProofOfStoragePPE
@@ -84,33 +84,33 @@ def test_ppe_types():
         captcha_ppe = SymmetricCaptchaPPE(difficulty=PPEDifficulty.EASY)
         challenge = captcha_ppe.generate_challenge("test_session", "user1", "user2")
         assert "challenge_data" in challenge
-        print("✅ Symmetric CAPTCHA working")
+        print("Symmetric CAPTCHA working")
         
         # Test Proof of Storage
         print("Testing Proof of Storage...")
         storage_ppe = ProofOfStoragePPE(difficulty=PPEDifficulty.EASY)
         challenge = storage_ppe.generate_challenge("test_session", "user1", "user2")
         assert "challenge_data" in challenge
-        print("✅ Proof of Storage working")
+        print("Proof of Storage working")
         
         # Test Computational
         print("Testing Computational PPE...")
         comp_ppe = ComputationalPPE(difficulty=PPEDifficulty.EASY)
         challenge = comp_ppe.generate_challenge("test_session", "user1", "user2")
         assert "challenge_data" in challenge
-        print("✅ Computational PPE working")
+        print("Computational PPE working")
         
-        print("✅ All PPE types tested successfully!")
+        print("All PPE types tested successfully!")
         
     except Exception as e:
-        print(f"❌ PPE testing failed: {e}")
+        print(f"PPE testing failed: {e}")
         raise
 
 
 def show_integration_guide():
     """Show integration guide for existing code."""
     print("""
-🔧 INTEGRATION GUIDE
+INTEGRATION GUIDE
 
 To integrate the new PPE types into your existing poll creation:
 
@@ -154,7 +154,7 @@ To integrate the new PPE types into your existing poll creation:
    import { usePPEExecution } from './hooks/usePPEExecution';
    ```
 
-📚 For complete examples, see:
+For complete examples, see:
    - backend/app/services/ppe_integration.py
    - frontend/src/components/ppe/
    - backend/tests/test_ppe_types.py

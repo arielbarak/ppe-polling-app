@@ -173,9 +173,9 @@ function ProofGraphViewer({ pollId }) {
           <Descriptions bordered column={1} size="small">
             <Descriptions.Item label="Verification Status">
               {hashVerification.is_valid ? (
-                <Text type="success">✅ Hash Verified</Text>
+                <Text type="success">Hash Verified</Text>
               ) : (
-                <Text type="warning">⚠️ Hash Mismatch</Text>
+                <Text type="warning">Hash Mismatch</Text>
               )}
             </Descriptions.Item>
             <Descriptions.Item label="Stored Hash">
@@ -189,7 +189,7 @@ function ProofGraphViewer({ pollId }) {
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Match">
-              {hashVerification.match ? '✅ Yes' : '❌ No'}
+              {hashVerification.match ? 'Yes' : 'No'}
             </Descriptions.Item>
           </Descriptions>
 

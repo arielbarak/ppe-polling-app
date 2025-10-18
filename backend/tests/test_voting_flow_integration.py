@@ -33,7 +33,7 @@ class TestVotingFlowIntegration:
         INTEGRATION TEST for Issue #7.
         Tests complete flow from registration to voting.
         """
-        # 1. Create poll
+        # Create poll
         poll = Poll(
             id="integration_poll",
             question="Test integration question?",
@@ -45,7 +45,7 @@ class TestVotingFlowIntegration:
         test_db.add(poll)
         test_db.commit()
         
-        # 2. Register users
+        # Register users
         num_users = 10
         for i in range(num_users):
             user = User(
@@ -58,7 +58,7 @@ class TestVotingFlowIntegration:
         
         print(f"\n✓ Registered {num_users} users")
         
-        # 3. Close registration and assign PPEs
+        # Close registration and assign PPEs
         poll.phase = PollPhase.CERTIFICATION
         test_db.commit()
         
@@ -67,7 +67,7 @@ class TestVotingFlowIntegration:
         
         print(f"✓ Assigned PPE partners to {len(assignments)} users")
         
-        # 4. Simulate PPE completions
+        # Simulate PPE completions
         for user_id, partners in assignments.items():
             cert_state = test_db.query(CertificationState).filter_by(
                 user_id=user_id,
@@ -84,13 +84,13 @@ class TestVotingFlowIntegration:
             print(f"  ✓ User {user_id} completed {len(partners)} PPEs → "
                   f"Certified: {cert_state.is_certified}")
         
-        # 5. Transition to voting phase
+        # Transition to voting phase
         state_machine = StateMachine(test_db)
         num_certified, num_excluded = state_machine.transition_to_voting(poll.id)
         
         print(f"✓ Transitioned to voting: {num_certified} certified, {num_excluded} excluded")
         
-        # 6. Verify all certified users can vote
+        # Verify all certified users can vote
         certified_users = test_db.query(CertificationState).filter_by(
             poll_id=poll.id,
             is_certified=True
@@ -109,13 +109,13 @@ class TestVotingFlowIntegration:
             
             print(f"  ✓ User {cert_state.user_id} CAN VOTE")
         
-        # 7. Cast votes
+        # Cast votes
         for cert_state in certified_users:
             success = state_machine.record_vote(cert_state.user_id, poll.id)
             assert success is True
             print(f"  ✓ User {cert_state.user_id} voted")
         
-        # 8. Verify cannot vote twice
+        # Verify cannot vote twice
         for cert_state in certified_users:
             can_vote, reason = state_machine.can_user_vote(
                 cert_state.user_id,
@@ -126,7 +126,7 @@ class TestVotingFlowIntegration:
             assert "already voted" in reason.lower()
             print(f"  ✓ User {cert_state.user_id} correctly blocked from double-voting")
         
-        print("\n✅ INTEGRATION TEST PASSED: Complete voting flow works!")
+        print("\nINTEGRATION TEST PASSED: Complete voting flow works!")
     
     def test_ppe_assignment_algorithm(self, test_db):
         """Test PPE assignment algorithm works correctly."""

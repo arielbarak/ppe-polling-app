@@ -66,13 +66,13 @@ class VerificationResult:
     def _generate_summary(self) -> str:
         """Generate human-readable summary."""
         if not self.errors and not self.warnings:
-            return "✅ Poll verification passed. No issues detected."
+            return "Poll verification passed. No issues detected."
         
         parts = []
         if self.errors:
-            parts.append(f"❌ {len(self.errors)} critical errors found")
+            parts.append(f"ERROR: {len(self.errors)} critical errors found")
         if self.warnings:
-            parts.append(f"⚠️ {len(self.warnings)} warnings")
+            parts.append(f"WARNING: {len(self.warnings)} warnings")
         
         return " | ".join(parts)
 
@@ -383,7 +383,7 @@ class VerificationService:
             return "Waiting for PPE assignments..."
         
         if completed >= required:
-            return "✅ Certification complete! You can vote when voting opens."
+            return "Certification complete! You can vote when voting opens."
         
         if remaining > 0:
             return f"You have {completed} out of {required} required verifications. Complete {remaining} more to vote."

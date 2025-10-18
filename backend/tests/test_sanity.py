@@ -101,7 +101,7 @@ def test_full_basic_poll_flow():
     Test a complete basic poll flow with just basic assertions.
     We'll skip the detailed validation since this is just a sanity test.
     """
-    # 1. Create a poll
+    # Create a poll
     poll_data = {
         "question": "Basic Flow Test",
         "options": ["Yes", "No", "Maybe"]
@@ -111,7 +111,7 @@ def test_full_basic_poll_flow():
     assert create_response.status_code == 201
     poll_id = create_response.json()["id"]
     
-    # 2. Register two users
+    # Register two users
     user1_key = {"key": "user1-key"}
     user2_key = {"key": "user2-key"}
     
@@ -130,14 +130,14 @@ def test_full_basic_poll_flow():
     assert user2_id_response.status_code == 200
     user2_id = user2_id_response.json()
     
-    # 3. Users verify each other
+    # Users verify each other
     verify1_response = client.post(f"/polls/{poll_id}/verify/{user2_id}", json=user1_key)
     assert verify1_response.status_code == 200
     
     verify2_response = client.post(f"/polls/{poll_id}/verify/{user1_id}", json=user2_key)
     assert verify2_response.status_code == 200
     
-    # 4. Complete PPE certification between users
+    # Complete PPE certification between users
     ppe_response1 = client.post(
         f"/polls/{poll_id}/ppe-certification", 
         json={
@@ -147,7 +147,7 @@ def test_full_basic_poll_flow():
     )
     assert ppe_response1.status_code == 200
     
-    # 5. Verify the poll
+    # Verify the poll
     verify_response = client.get(f"/polls/{poll_id}/verify")
     assert verify_response.status_code == 200
     

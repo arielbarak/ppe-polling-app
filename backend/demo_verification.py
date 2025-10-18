@@ -63,9 +63,9 @@ def run_verification_demo():
     # Create demo poll
     print("\n1️⃣ Creating demo poll...")
     poll = create_demo_poll()
-    print(f"   ✅ Poll created with {len(poll.registrants)} participants")
-    print(f"   ✅ {sum(len(certs) for certs in poll.ppe_certifications.values())} certifications added")
-    print(f"   ✅ {len(poll.votes)} votes cast")
+    print(f"   Poll created with {len(poll.registrants)} participants")
+    print(f"   {sum(len(certs) for certs in poll.ppe_certifications.values())} certifications added")
+    print(f"   {len(poll.votes)} votes cast")
     
     # Run verification
     print("\n2️⃣ Running comprehensive verification...")
@@ -73,10 +73,10 @@ def run_verification_demo():
     
     # Display results
     print("\n3️⃣ Verification Results:")
-    print(f"   Status: {'✅ VALID' if result.is_valid else '❌ INVALID'}")
+    print(f"   Status: {'VALID' if result.is_valid else 'INVALID'}")
     print(f"   Summary: {result._generate_summary()}")
     
-    print("\n📊 Key Metrics:")
+    print("\nKey Metrics:")
     for key, value in result.metrics.items():
         if isinstance(value, float):
             print(f"   • {key}: {value:.4f}")
@@ -84,12 +84,12 @@ def run_verification_demo():
             print(f"   • {key}: {value}")
     
     if result.errors:
-        print("\n❌ Errors:")
+        print("\nErrors:")
         for error in result.errors:
             print(f"   • {error}")
     
     if result.warnings:
-        print("\n⚠️ Warnings:")
+        print("\nWarnings:")
         for warning in result.warnings:
             print(f"   • {warning}")
     
@@ -110,7 +110,7 @@ def run_verification_demo():
 if __name__ == "__main__":
     try:
         result = run_verification_demo()
-        print(f"\n🎉 Demo completed successfully. Poll is {'VALID' if result.is_valid else 'INVALID'}.")
+        print(f"\nDemo completed successfully. Poll is {'VALID' if result.is_valid else 'INVALID'}.")
     except Exception as e:
         print(f"\n💥 Demo failed with error: {e}")
         import traceback
