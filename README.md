@@ -1,240 +1,119 @@
-# PPE Polling App
+# PPE Polling System 🗳️
 
-A secure polling application using Proof of Private Effort (PPE) for Sybil resistance.
+A Sybil-resistant polling system using Proof of Private Effort (PPE). Based on the research paper by Canetti et al.
 
-## Prerequisites
+## What is this?
 
-- Docker
-- Docker Compose
+A voting system where you prove you're human by solving challenges with other voters. No central authority needed. Cryptographically verifiable. Resistant to fake accounts.
 
-## Quick Start with Docker
+## Quick Start
 
-1. Clone the repository:
+### Prerequisites
+
+- Python 3.9+
+- Node.js 16+
+- Docker (optional)
+
+### Run with Docker (easiest)
+
 ```bash
-git clone <repository-url>
+# Clone the repo
+git clone https://github.com/arielbarak/ppe-polling-app.git
 cd ppe-polling-app
+
+# Start everything
+docker-compose up
 ```
 
-2. Start the application:
+Then open http://localhost:3000
+
+### Run manually
+
+**Backend:**
 ```bash
-docker-compose up --build
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
 
-This will:
-- Build and start the frontend (available at http://localhost:5173)
-- Build and start the backend API (available at http://localhost:8000)
-
-3. Stop the application:
+**Frontend:**
 ```bash
-docker-compose down
-```
-
-## Development
-
-### Frontend Development
-The frontend container runs in development mode with hot-reload enabled.
-Any changes to the frontend code will automatically reflect in the browser.
-
-### Backend Development
-The backend also supports hot-reload. Changes to Python files will automatically
-restart the server.
-
-## Container Details
-
-- Frontend: Node.js 22 with Vite and React
-- Backend: Python 3.11 with FastAPI
-- Ports:
-  - Frontend: 5173
-  - Backend: 8000
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Clean Docker build cache:
-```bash
-docker-compose build --no-cache
-```
-
-2. Remove volumes and rebuild:
-```bash
-docker-compose down -v
-docker-compose up --build
-```
-
-3. Check container logs:
-```bash
-docker-compose logs frontend  # For frontend logs
-docker-compose logs backend   # For backend logs
-```
-# Make sure you're in the backend directory with the virtual environment activated
-uvicorn app.main:app --reload --app-dir .
-```
-
-The backend will be running at http://localhost:8000.
-
-### Set up the Frontend:
-
-Open a new terminal.
-
-#### Navigate to the frontend directory:
-
 cd frontend
-
-#### Install the required Node.js packages:
-
 npm install
+npm start
+```
 
-#### Additional Frontend Dependencies
+Backend runs at http://localhost:8000, frontend at http://localhost:3000
 
-The project uses React Force Graph for network visualization (for the public verification interface):
+## How it works
 
-npm install react-force-graph --save
+1. **Registration** - Solve a CAPTCHA to register
+2. **PPE Protocol** - Exchange challenges with assigned neighbors
+3. **Vote** - Cast your vote (only after PPE is complete)
+4. **Verify** - Anyone can verify the poll's integrity
 
-### Run the frontend development server:
-
-npm run dev
-
-The frontend will be accessible at http://localhost:5173.
+The system prevents Sybil attacks by requiring mutual effort between users. Fake accounts can't collude without detection.
 
 ## Features
 
-### Poll Creation and Participation
-- Create polls with multiple options
-- Register as a participant using cryptographic identities
-- Verify other participants
-- Complete PPE (Proof of Private Effort) challenges with neighbors
-- Cast votes securely
-
-### Public Verification
-The system includes a public verification interface that allows anyone to verify the integrity of a poll without needing to register or participate. This feature:
-
-- Visualizes the certification graph showing connections between participants
-- Validates the graph's expansion properties to ensure Sybil-resistance
-- Verifies that all votes were cast by properly certified participants
-- Provides metrics on PPE coverage and certification distribution
-- Shows transparent poll results with verification status
-
-To use the verification interface:
-1. From the home page, enter a Poll ID in the "Verify a Poll" section
-2. Or click the "Verify" button next to any poll in the available polls list
-3. Examine the certification graph, verification metrics, and poll results
+- ✅ One-sided PPE for registration
+- ✅ Symmetric CAPTCHA for bidirectional PPE
+- ✅ Ideal graph for neighbor assignment
+- ✅ Cryptographic proof graphs
+- ✅ Advanced Sybil detection
+- ✅ Modular PPE architecture
+- ✅ Real-time WebSocket communication
+- ✅ Complete verification algorithms
 
 ## Testing
 
-The application includes comprehensive test suites to ensure the correct functioning of all components, particularly the critical verification system.
-
-### Running Tests
-
-To run the backend tests:
-
 ```bash
-# Make sure you're in the backend directory with the virtual environment activated
+# Run all tests
 cd backend
 pytest
+
+# Run simulations
+python -m pytest tests/simulation/ -v
 ```
 
-To run specific test categories:
+## Documentation
 
-```bash
-# Run unit tests only
-pytest tests/test_verification.py
+- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment
+- [API Reference](docs/API.md) - Complete API docs
+- [Architecture Overview](docs/ARCHITECTURE.md) - How it works
+- [Developer Guide](docs/DEVELOPMENT.md) - Contributing
+- [Research Summary](docs/RESEARCH.md) - Paper explanation
 
-# Run API integration tests
-pytest tests/test_verification_api.py
+## Project Structure
 
-# Run graph validation tests
-pytest tests/test_graph_validation.py
-
-# Skip stress tests (which can take longer)
-pytest -m "not stress"
-
-# Run only stress tests
-pytest -m stress
+```
+├── backend/               # FastAPI backend
+│   ├── app/
+│   │   ├── models/       # Data models
+│   │   ├── routes/       # API endpoints
+│   │   ├── services/     # Business logic
+│   │   ├── utils/        # Utilities
+│   │   └── ppe/          # PPE implementations
+│   └── tests/            # Tests and simulations
+├── frontend/             # React frontend
+│   └── src/
+│       ├── components/   # UI components
+│       ├── services/     # API clients
+│       └── ppe/          # PPE handlers
+└── docs/                 # Documentation
 ```
 
-### Test Categories
+## License
 
-The test suite is organized into several categories:
+MIT
 
-1. **Unit Tests** (`test_verification.py`): Tests individual functions and components in isolation.
+## Citation
 
-2. **API Integration Tests** (`test_verification_api.py`): Tests the API endpoints and their interaction with services.
+Based on: Canetti, R., et al. "PPE Polling: Proof of Private Effort for Sybil-Resistant Polling Systems"
 
-3. **Graph Validation Tests** (`test_graph_validation.py`): Specialized tests for the graph validation algorithms.
+## Contributing
 
-4. **Stress Tests** (`test_verification_stress.py`): Performance tests for the verification system under load.
-
-5. **Orchestration Tests** (`test_verification_orchestration.py`): End-to-end tests that validate the complete verification flow.
-
-### Manual Testing Guide
-
-To manually verify the system's functionality:
-
-1. **Create a Poll**:
-   - Create a new poll with at least 3 options
-   - Verify it appears in the poll list
-
-2. **Register Multiple Users**:
-   - Open the application in different browser windows (or private/incognito windows)
-   - Register at least 5 different participants
-
-3. **Complete PPE Certification**:
-   - For each user, verify at least 2 other users
-   - Ensure each user is connected to at least 2 others in the certification graph
-
-4. **Cast Votes**:
-   - Have at least 3 users cast votes
-   - Verify votes are recorded correctly
-
-5. **Verify Poll Integrity**:
-   - Use the public verification interface to check the poll
-   - Confirm the certification graph is displayed correctly
-   - Verify that the poll is marked as valid
-   - Check that PPE coverage is at least 80%
-   - Ensure minimum certifications per user is at least 2
-
-## Test Coverage
-
-The project includes tools to measure and visualize test coverage for both backend and frontend components, providing insights into the effectiveness of the test suite.
-
-### Backend Test Coverage
-
-To run pytest with coverage reporting and generate a terminal report:
-
-```bash
-# Make sure you're in the backend directory with the virtual environment activated
-cd backend
-pytest --cov=app tests/
-```
-
-To generate a detailed HTML coverage report for the backend:
-
-```bash
-# Generate HTML report that can be viewed in a browser
-cd backend
-pytest --cov=app --cov-report=html tests/
-```
-
-After running this command, an `htmlcov` directory will be created. Open `htmlcov/index.html` in a browser to view the interactive coverage report, which shows exactly which lines of code are covered by tests.
-
-### Frontend Test Coverage
-
-To run frontend tests with coverage reporting:
-
-```bash
-# Make sure you're in the frontend directory
-cd frontend
-npm run test:coverage
-```
-
-This command runs all Vitest tests and generates both a terminal coverage summary and an HTML report. The HTML report is stored in the `coverage` directory; open `coverage/index.html` in a browser to explore the detailed coverage results.
-
-### Coverage Reports in CI/CD
-
-The project is configured to generate coverage reports during continuous integration runs. Coverage reports are archived as artifacts and can be downloaded from the CI/CD pipeline results page.
-
-### Coverage Thresholds
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 The project aims to maintain the following coverage thresholds:
 - Backend: Minimum 70% line coverage
