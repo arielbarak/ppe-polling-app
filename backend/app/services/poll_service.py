@@ -74,6 +74,9 @@ class PollService:
         # Record the vote
         poll.votes[user_id] = vote
         
+        # Invalidate caches
+        self.invalidate_caches(poll_id)
+        
         # Broadcast vote update to all connected clients
         asyncio.create_task(manager.broadcast_to_poll(
             json.dumps({
@@ -240,5 +243,19 @@ class PollService:
             return "Poll verification successful. No issues detected."
         else:
             return " ".join(messages)
+    
+    def invalidate_caches(self, poll_id: str):
+        """
+        Invalidate all caches related to a poll.
+        
+        Should be called when poll data changes.
+        """
+        # Invalidate proof graph cache
+        from .proof_graph_service import proof_graph_service
+        proof_graph_service.invalidate_proof_graph(poll_id)
+        
+        # Invalidate graph service cache
+        from .graph_service import graph_service
+        graph_service.invalidate_graph(poll_id)
 
 poll_service = PollService()

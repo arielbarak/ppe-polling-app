@@ -3,6 +3,7 @@ import { Card, Typography, Button, Space, Spin, Alert, Divider, Statistic, Row, 
 import { HomeOutlined, SearchOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import ForceGraph2D from 'react-force-graph-2d';
 import { pollApi } from '../api/pollApi';
+import ProofGraphViewer from './ProofGraphViewer';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -204,6 +205,8 @@ function PollVerifyPage({ pollId, navigateToHome }) {
         <>
           {renderVerificationStatus()}
           {renderPollResults()}
+          
+          <ProofGraphViewer pollId={poll.id} />
           
           <Card title="Certification Graph" style={{ marginBottom: 16 }}>
             <Paragraph>
