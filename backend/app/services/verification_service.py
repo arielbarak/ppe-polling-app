@@ -82,11 +82,12 @@ class VerificationService:
     Service for advanced poll verification.
     """
     
-    def __init__(self):
+    def __init__(self, db_session=None):
         self.min_certifications_required = 2
         self.min_conductance_threshold = 0.2
         self.max_clustering_threshold = 0.8
         self.min_expansion_ratio = 0.3
+        self.db = db_session
     
     def verify_poll_comprehensive(self, poll: Poll) -> VerificationResult:
         """
@@ -324,6 +325,70 @@ class VerificationService:
             # High variance might indicate selective certification
             if std_certs / mean_certs > 0.5:
                 result.add_warning("High variance in certification distribution")
+    
+    # FIXES Issue #1: Dynamic verification count methods
+    def get_verification_requirements(
+        self,
+        user_id: str,
+        poll_id: str
+    ) -> tuple:
+        """
+        Get verification requirements for user.
+        
+        FIXES Issue #1: Returns dynamic values based on graph degree.
+        
+        Returns:
+            (required, completed, remaining)
+        """
+        if not self.db:
+            # Fallback to old behavior
+            return (self.min_certifications_required, 0, self.min_certifications_required)
+        
+        from app.models.certification_state import CertificationState
+        from app.models.poll import Poll
+        
+        cert_state = self.db.query(CertificationState).filter_by(
+            user_id=user_id,
+            poll_id=poll_id
+        ).first()
+        
+        if not cert_state:
+            # No assignments yet, try to estimate
+            poll = self.db.query(Poll).filter_by(id=poll_id).first()
+            if poll and hasattr(poll, 'expected_degree'):
+                return (poll.expected_degree, 0, poll.expected_degree)
+            return (0, 0, 0)
+        
+        return (
+            cert_state.required_ppes,
+            cert_state.completed_ppes,
+            cert_state.remaining_ppes
+        )
+    
+    def get_verification_message(
+        self,
+        user_id: str,
+        poll_id: str
+    ) -> str:
+        """
+        Get human-readable verification status message.
+        
+        FIXES Issue #1: Dynamic message based on actual requirements.
+        """
+        required, completed, remaining = self.get_verification_requirements(
+            user_id, poll_id
+        )
+        
+        if required == 0:
+            return "Waiting for PPE assignments..."
+        
+        if completed >= required:
+            return "✅ Certification complete! You can vote when voting opens."
+        
+        if remaining > 0:
+            return f"You have {completed} out of {required} required verifications. Complete {remaining} more to vote."
+        
+        return "Verification in progress..."
 
 
 # Singleton instance

@@ -1,7 +1,8 @@
 /**
  * Component for displaying and solving registration CAPTCHA.
  * 
- * This implements the initial one-sided PPE required for registration.
+ * FIXES Issue #3: Updated terminology.
+ * FIXES Issue #4: Clearly labeled as one-sided PPE (server-verified).
  */
 
 import React, { useState, useEffect } from 'react';
@@ -72,10 +73,10 @@ function RegistrationCaptcha({ pollId, onSolved, onCancel }) {
         <div>
           <Title level={4}>
             <CheckCircleOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
-            Prove Your Effort
+            Registration Challenge
           </Title>
           <Text type="secondary">
-            To prevent spam and ensure fair participation, please solve this challenge.
+            Complete this anti-bot verification to join the poll. This is a one-time server-verified challenge (one-sided PPE).
           </Text>
         </div>
 
@@ -139,8 +140,8 @@ function RegistrationCaptcha({ pollId, onSolved, onCancel }) {
         </Space>
 
         <Alert
-          message="About This Challenge"
-          description="This is a Proof of Private Effort (PPE) - a lightweight mechanism to ensure you're a real participant. Unlike traditional CAPTCHAs, this is part of the poll's security protocol."
+          message="Anti-Bot Verification"
+          description="This is a one-sided Proof of Private Effort (PPE) verified by the server to prevent fake registrations. Later, you'll complete peer-to-peer verifications (two-sided PPE) with other participants."
           type="info"
           showIcon
         />

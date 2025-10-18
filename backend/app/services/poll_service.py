@@ -5,6 +5,7 @@ import asyncio
 from ..models.poll import Poll, PollCreate, Vote
 from ..services.connection_manager import manager
 from ..utils.crypto_utils import verify_signature
+from ..services.state_machine import get_state_machine
 
 _polls_db: Dict[str, Poll] = {}
 
@@ -12,6 +13,9 @@ def get_user_id(public_key_jwk: Dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(public_key_jwk, sort_keys=True).encode()).hexdigest()
 
 class PollService:
+    def __init__(self, db_session=None):
+        self.db = db_session
+    
     def create_poll(self, poll_data: PollCreate) -> Poll:
         # Use model_dump() instead of dict() to avoid Pydantic deprecation warning
         new_poll = Poll(**poll_data.model_dump())
@@ -61,10 +65,17 @@ class PollService:
         if user_id in poll.votes:
             raise ValueError("User has already voted")
 
-        # Check if user has enough verifications (minimum 2)
-        if not poll.can_vote(user_id):
-            verification_count = len(poll.verifications.get(user_id, {}).verified_by)
-            raise ValueError(f"Insufficient verifications. You have {verification_count}/2 required verifications")
+        # FIXED: Use state machine for proper authorization (Issue #7)
+        if self.db:
+            state_machine = get_state_machine(self.db)
+            can_vote, reason = state_machine.can_user_vote(user_id, poll_id)
+            if not can_vote:
+                raise ValueError(f"Cannot vote: {reason}")
+        else:
+            # Fallback to old logic if no DB session (for compatibility)
+            if not poll.can_vote(user_id):
+                verification_count = len(poll.verifications.get(user_id, {}).verified_by)
+                raise ValueError(f"Insufficient verifications. You have {verification_count}/2 required verifications")
 
         # Verify signature
         message_to_verify = f"{poll.id}:{vote.option}"
