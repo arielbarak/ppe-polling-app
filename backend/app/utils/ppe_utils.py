@@ -1,10 +1,7 @@
 """
 Utilities for Proof of Private Effort (PPE) protocol.
 
-Implements the cryptographic primitives needed for the symmetric CAPTCHA PPE:
-- Commitment scheme (hash-based)
-- Challenge generation with secrets
-- Challenge verification
+Now uses the modular PPE factory system.
 """
 
 import hashlib
@@ -12,6 +9,9 @@ import secrets
 import base64
 from typing import Tuple, Optional
 import json
+
+from ..ppe.factory import ppe_factory
+from ..ppe.base import PPEType, PPEDifficulty
 
 
 def generate_secret_key(length: int = 32) -> str:
@@ -28,54 +28,40 @@ def generate_secret_key(length: int = 32) -> str:
     return base64.b64encode(secret_bytes).decode('utf-8')
 
 
-def generate_challenge_with_secret(secret: str, session_id: str, difficulty: str = "medium") -> Tuple[str, str]:
+def generate_challenge_with_secret(secret: str, session_id: str, 
+                                   ppe_type: str = "symmetric_captcha",
+                                   difficulty: str = "medium") -> Tuple[str, str]:
     """
-    Generate a CAPTCHA challenge deterministically from a secret.
+    Generate a challenge deterministically from a secret.
     
-    This allows the peer to later verify that the challenge was generated
-    correctly for this specific session.
+    Uses the PPE factory to support multiple challenge types.
     
     Args:
         secret: Base64-encoded secret key
         session_id: Unique identifier for this PPE session
+        ppe_type: Type of PPE mechanism to use
         difficulty: Challenge difficulty
         
     Returns:
-        Tuple of (challenge_text, solution)
+        Tuple of (challenge_data, solution)
     """
-    from .captcha_utils import generate_random_string
+    try:
+        ppe_type_enum = PPEType(ppe_type)
+        difficulty_enum = PPEDifficulty(difficulty)
+    except ValueError:
+        # Fallback to defaults
+        ppe_type_enum = PPEType.SYMMETRIC_CAPTCHA
+        difficulty_enum = PPEDifficulty.MEDIUM
     
-    # Create deterministic seed from secret + session_id
-    seed_input = f"{secret}:{session_id}".encode('utf-8')
-    seed_hash = hashlib.sha256(seed_input).digest()
-    seed = int.from_bytes(seed_hash[:8], byteorder='big')
+    # Create PPE instance
+    ppe = ppe_factory.create(ppe_type_enum, difficulty_enum)
     
-    # Use seed to generate deterministic challenge
-    import random
-    random.seed(seed)
-    
-    difficulty_settings = {
-        "easy": {"length": 4, "uppercase": False, "digits": False},
-        "medium": {"length": 6, "uppercase": True, "digits": True},
-        "hard": {"length": 8, "uppercase": True, "digits": True}
-    }
-    
-    settings = difficulty_settings.get(difficulty, difficulty_settings["medium"])
-    
-    solution = generate_random_string(
-        length=settings["length"],
-        include_uppercase=settings["uppercase"],
-        include_digits=settings["digits"]
-    )
-    
-    # For now, challenge text is just the solution with spaces
-    challenge_text = ' '.join(solution)
-    
-    return challenge_text, solution
+    # Generate challenge
+    return ppe.generate_challenge_with_secret(secret, session_id)
 
 
 def verify_challenge_generation(secret: str, session_id: str, challenge_text: str, 
-                                 expected_solution: str) -> bool:
+                                expected_solution: str, ppe_type: str = "symmetric_captcha") -> bool:
     """
     Verify that a challenge was generated correctly using the secret.
     
@@ -84,17 +70,18 @@ def verify_challenge_generation(secret: str, session_id: str, challenge_text: st
         session_id: Session identifier
         challenge_text: The challenge that was presented
         expected_solution: The solution that was committed to
+        ppe_type: Type of PPE mechanism
         
     Returns:
         True if challenge was generated correctly
     """
-    # Regenerate challenge using the same secret and session
-    regenerated_text, regenerated_solution = generate_challenge_with_secret(
-        secret, session_id, "medium"
-    )
+    try:
+        ppe_type_enum = PPEType(ppe_type)
+    except ValueError:
+        ppe_type_enum = PPEType.SYMMETRIC_CAPTCHA
     
-    # Verify the solution matches
-    return regenerated_solution.lower() == expected_solution.lower()
+    ppe = ppe_factory.create(ppe_type_enum)
+    return ppe.verify_challenge_generation(secret, session_id, challenge_text, expected_solution)
 
 
 def create_commitment(solution: str, nonce: Optional[str] = None) -> Tuple[str, str]:
@@ -157,19 +144,26 @@ def create_ppe_session_id(user1_id: str, user2_id: str, poll_id: str) -> str:
     return hashlib.sha256(session_input).hexdigest()[:16]
 
 
-def verify_solution_correctness(challenge_text: str, solution: str) -> bool:
+def verify_solution_correctness(challenge_text: str, solution: str, 
+                                ppe_type: str = "symmetric_captcha") -> bool:
     """
     Verify that a solution correctly solves a challenge.
     
     Args:
-        challenge_text: The challenge text (may contain spaces)
+        challenge_text: The challenge text
         solution: The proposed solution
+        ppe_type: Type of PPE mechanism
         
     Returns:
         True if solution is correct
     """
-    # Remove spaces from challenge text to get expected solution
-    expected = challenge_text.replace(' ', '').lower().strip()
-    provided = solution.lower().strip()
+    try:
+        ppe_type_enum = PPEType(ppe_type)
+    except ValueError:
+        ppe_type_enum = PPEType.SYMMETRIC_CAPTCHA
     
-    return expected == provided
+    ppe = ppe_factory.create(ppe_type_enum)
+    return ppe.verify_solution(challenge_text, solution)
+
+
+# Keep existing commitment and session functions unchanged

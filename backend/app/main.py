@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import the routers
-from .routes import polls, ws, health, graph, registration, ppe, proof_graph, verification
+from .routes import polls, ws, health, graph, registration, ppe, proof_graph, verification, ppe_config
 
 app = FastAPI(
     title="PPE Polling System API",
@@ -33,5 +33,6 @@ app.include_router(ws.router)
 app.include_router(graph.router)
 app.include_router(registration.router)
 app.include_router(ppe.router)
+app.include_router(ppe_config.router)
 app.include_router(proof_graph.router)
 app.include_router(verification.router)
