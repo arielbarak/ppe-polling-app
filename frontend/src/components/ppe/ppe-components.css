@@ -1,0 +1,530 @@
+/* PPE Component Styles */
+
+.ppe-card {
+  max-width: 600px;
+  margin: 0 auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ppe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ppe-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Timer */
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: #666;
+}
+
+.timer-icon {
+  height: 1rem;
+  width: 1rem;
+}
+
+/* Info Alert */
+.ppe-info {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* CAPTCHA Display */
+.captcha-display {
+  padding: 2rem;
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  text-align: center;
+}
+
+.captcha-text {
+  font-family: 'Courier New', monospace;
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  font-weight: bold;
+  color: #374151;
+}
+
+/* Form Styles */
+.ppe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.input-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+.captcha-input {
+  font-family: 'Courier New', monospace;
+  font-size: 1.25rem;
+  text-align: center;
+  padding: 0.75rem;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 0.75rem;
+  font-weight: 500;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Description */
+.ppe-description {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Instructions */
+.instructions {
+  margin: 1rem 0;
+}
+
+.instructions-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #374151;
+}
+
+.instruction-step {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.step-number {
+  font-family: 'Courier New', monospace;
+  color: #3b82f6;
+  font-weight: 600;
+  min-width: 1.5rem;
+}
+
+.step-text {
+  color: #4b5563;
+}
+
+/* File Info */
+.file-info {
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.375rem;
+  margin: 1rem 0;
+}
+
+.file-info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.file-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.file-info-label {
+  color: #6b7280;
+}
+
+.file-info-value {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.storage-provider {
+  text-transform: capitalize;
+}
+
+/* Download Button */
+.download-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.button-icon {
+  height: 1rem;
+  width: 1rem;
+}
+
+/* Hash Input */
+.hash-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label-icon {
+  height: 1rem;
+  width: 1rem;
+}
+
+.hash-input {
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.hash-help {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.hash-help code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+}
+
+/* PPE Type Selector */
+.ppe-type-selector {
+  width: 100%;
+}
+
+.selector-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #111827;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.type-card {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 2px solid transparent;
+}
+
+.type-card:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.type-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.type-card-blue {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.type-card-green {
+  background-color: #d1fae5;
+  border-color: #86efac;
+}
+
+.type-card-purple {
+  background-color: #e9d5ff;
+  border-color: #c4b5fd;
+}
+
+.type-card-orange {
+  background-color: #fed7aa;
+  border-color: #fdba74;
+}
+
+.type-card-default {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.type-card-content {
+  padding: 1.5rem;
+}
+
+.type-card-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.type-icon {
+  padding: 0.75rem;
+  border-radius: 50%;
+  background-color: white;
+  flex-shrink: 0;
+}
+
+.type-icon .icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.type-info {
+  flex: 1;
+}
+
+.type-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.type-name {
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.type-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.effort-badge {
+  font-size: 0.75rem;
+}
+
+.default-badge {
+  font-size: 0.75rem;
+  background-color: #3b82f6;
+  color: white;
+}
+
+.type-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0 1rem 0;
+  line-height: 1.4;
+}
+
+.type-metadata {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+}
+
+.metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #6b7280;
+}
+
+.metadata-icon {
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
+/* Computational PPE Specific */
+.title-icon {
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.computational-details {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-family: 'Courier New', monospace;
+  color: #334155;
+}
+
+.hash-value {
+  font-size: 0.75rem;
+  word-break: break-all;
+  max-width: 200px;
+}
+
+.challenge-text {
+  font-size: 0.75rem;
+  word-break: break-all;
+  max-width: 250px;
+}
+
+.computation-progress {
+  background-color: #f1f5f9;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid #cbd5e1;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.hash-counter {
+  color: #64748b;
+  font-family: 'Courier New', monospace;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  background-color: #e2e8f0;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #3b82f6;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.computational-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.compute-button,
+.stop-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.solution-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.solution-alert {
+  background-color: #d1fae5;
+  border-color: #34d399;
+}
+
+.alert-icon {
+  height: 1rem;
+  width: 1rem;
+  color: #059669;
+}
+
+.submit-solution-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #059669;
+  color: white;
+}
+
+.submit-solution-button:hover {
+  background-color: #047857;
+}
+
+/* Loading and Error States */
+.ppe-loading,
+.ppe-error,
+.ppe-no-types {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.ppe-error {
+  color: #dc2626;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .type-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .type-card-layout {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .type-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .captcha-text {
+    font-size: 1.5rem;
+    letter-spacing: 0.25rem;
+  }
+  
+  .file-info-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .detail-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .hash-value,
+  .challenge-text {
+    max-width: 100%;
+  }
+}

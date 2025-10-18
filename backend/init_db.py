@@ -6,6 +6,7 @@ Creates all tables for the PPE polling application.
 from app.database import Base, engine
 from app.models.user import User, Poll, Vote
 from app.models.certification_state import CertificationState
+from app.models.ppe_types import PPEConfig, PPEExecution
 
 
 def create_all_tables():

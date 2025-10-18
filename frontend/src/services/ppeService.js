@@ -154,3 +154,176 @@ export async function createPPESessionId(user1Id, user2Id, pollId) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
+
+/**
+ * Enhanced PPE API functions for multiple PPE types
+ */
+
+const API_BASE = process.env.REACT_APP_API_URL || '';
+
+/**
+ * Get available PPE types for a poll.
+ * 
+ * @param {string} pollId - Poll identifier
+ * @returns {Promise<Object>} Available PPE types and configuration
+ */
+export async function getAvailableTypes(pollId) {
+  const response = await fetch(`${API_BASE}/api/ppe/available-types/${pollId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to get PPE types: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Initiate a new PPE execution.
+ * 
+ * @param {Object} request - PPE initiation request
+ * @param {string} request.poll_id - Poll ID
+ * @param {string} request.prover_id - Prover user ID
+ * @param {string} request.verifier_id - Verifier user ID
+ * @param {string} [request.ppe_type] - PPE type (optional, uses default if not specified)
+ * @returns {Promise<Object>} PPE execution details
+ */
+export async function initiatePPE(request) {
+  const response = await fetch(`${API_BASE}/api/ppe/initiate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to initiate PPE: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Submit a response to a PPE challenge.
+ * 
+ * @param {string} executionId - PPE execution ID
+ * @param {Object} response - Response data (varies by PPE type)
+ * @returns {Promise<Object>} Submission result
+ */
+export async function submitResponse(executionId, response) {
+  const apiResponse = await fetch(`${API_BASE}/api/ppe/submit/${executionId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(response),
+  });
+  
+  if (!apiResponse.ok) {
+    throw new Error(`Failed to submit PPE response: ${apiResponse.statusText}`);
+  }
+  
+  return apiResponse.json();
+}
+
+/**
+ * Get the status of a PPE execution.
+ * 
+ * @param {string} executionId - PPE execution ID
+ * @returns {Promise<Object>} Execution status
+ */
+export async function getStatus(executionId) {
+  const response = await fetch(`${API_BASE}/api/ppe/status/${executionId}`);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get PPE status: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get all active PPEs for a user in a poll.
+ * 
+ * @param {string} pollId - Poll ID
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} Active PPEs
+ */
+export async function getActivePPEs(pollId, userId) {
+  const response = await fetch(`${API_BASE}/api/ppe/active/${pollId}/${userId}`);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get active PPEs: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get PPE configuration for a poll.
+ * 
+ * @param {string} pollId - Poll ID
+ * @returns {Promise<Object>} PPE configuration
+ */
+export async function getPPEConfig(pollId) {
+  const response = await fetch(`${API_BASE}/api/ppe/config/${pollId}`);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get PPE config: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * List all available PPE types with descriptions.
+ * 
+ * @returns {Promise<Object>} PPE types information
+ */
+export async function listAllPPETypes() {
+  const response = await fetch(`${API_BASE}/api/ppe/types`);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to list PPE types: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Clean up expired PPE executions for a poll.
+ * 
+ * @param {string} pollId - Poll ID
+ * @returns {Promise<Object>} Cleanup result
+ */
+export async function cleanupExpiredPPEs(pollId) {
+  const response = await fetch(`${API_BASE}/api/ppe/cleanup/${pollId}`, {
+    method: 'POST'
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to cleanup PPEs: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+// Export as default object for backwards compatibility
+export const ppeService = {
+  // Legacy functions
+  generateSecret,
+  generateChallengeWithSecret,
+  createCommitment,
+  verifyCommitment,
+  verifyChallengeGeneration,
+  verifySolutionCorrectness,
+  createPPESessionId,
+  
+  // New API functions
+  getAvailableTypes,
+  initiatePPE,
+  submitResponse,
+  getStatus,
+  getActivePPEs,
+  getPPEConfig,
+  listAllPPETypes,
+  cleanupExpiredPPEs
+};
